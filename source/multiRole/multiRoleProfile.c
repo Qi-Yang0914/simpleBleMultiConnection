@@ -27,7 +27,7 @@
 #include "multiRoleProfile.h"
 #include "log.h"
 #include "multi.h"
-
+#include "LC_UI_led_buzzer.h"
 
 /*********************************************************************
     MACROS
@@ -424,7 +424,6 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
                                            uint8* pValue, uint16 len, uint16 offset )
 {
     bStatus_t status = SUCCESS;
-    uint8 notifyApp = 0xFF;
 
     // If attribute permissions require authorization to write, return error
     if ( gattPermitAuthorWrite( pAttr->permissions ) )
@@ -438,10 +437,12 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
         switch ( pAttr->type.uuid[ ATT_UUID_SIZE - 4 ] )
         {
         case MULTIPROFILE_CHAR1:
-            osal_memcpy(multiProfileChar1, pValue, len);
 			LOG("write data : %d\n", connHandle);
 			LOG_DUMP_BYTE(pValue, len);
-            // notifyApp = MULTIPROFILE_CHAR1;
+            osal_memcpy(LC_App_Set_Param.app_write_data, pValue, len);
+            LC_App_Set_Param.app_write_len = len;
+            LC_App_Set_Param.app_connHandle = connHandle;
+            osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, DEAL_APP_DATA_EVT, 10);
             break;
         }
     }
@@ -458,20 +459,10 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
                                                      offset, GATT_CLIENT_CFG_NOTIFY );
             osal_memcpy(multiProfileChar2, pValue, len);
 
-            // if ( status == SUCCESS )
-            // {
-            //     notifyApp = MULTIPROFILE_CHAR2;
-            // }
         }
         break;
         }
     }
-
-    // // If a charactersitic value changed then callback function to notify application of change
-    // if ( (notifyApp != 0xFF ) && multiProfile_AppCBs && multiProfile_AppCBs->pfnMultiProfileChange )
-    // {
-    //     multiProfile_AppCBs->pfnMultiProfileChange(connHandle,notifyApp,len );
-    // }
 
     return status;
 }

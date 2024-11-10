@@ -47,72 +47,25 @@
 /*------------------------------------------------------------------*/
 /*						Pins definitions							*/
 /*------------------------------------------------------------------*/
-#if(DEBUG_INFO == 0)
-//	BOOST Pins
-#define		GPIO_PWM_BUZZER		P0
-//	LED Pins
-#define		GPIO_LED_CTL		P3
-#define		GPIO_LED_1			P34
-#define		GPIO_LED_2			P33
+//	RF 433M
+#define		GPIO_RF_433M	P34
 //	Key Pins
-#define		GPIO_KEY_PWR		P26
+#define		GPIO_KEY_PWR	P0
 
-//	Hall Pins
-#define		GPIO_HALL_EN		P15
-#define		GPIO_HALL_1			P7
-#define		GPIO_HALL_2			P18
-#define		GPIO_HALL_3			P20
 
-//	Charge Pins
-#define		GPIO_DET_5V			P1
-#define		GPIO_DET_CHG		P2
-#define		GPIO_DET_BAT_EN		P14
-#define		GPIO_DET_BAT		P11
-#define		GPIO_DET_BAT_AD		ADC_CH1N_P11
-//	Sensor Pins
-#define		GPIO_DRIVE_CLK		P31
-#define		GPIO_DRIVE_DAT		P32
-
-#else
-//	BOOST Pins
-#define		GPIO_PWM_BUZZER		P0
-//	LED Pins
-#define		GPIO_LED_CTL		P3
-#define		GPIO_LED_1			P34
-#define		GPIO_LED_2			P33
-//	Key Pins
-#define		GPIO_KEY_PWR		P26
-
-//	Hall Pins
-#define		GPIO_HALL_EN		P15
-#define		GPIO_HALL_1			P7
-#define		GPIO_HALL_2			P18
-#define		GPIO_HALL_3			P20
-
-//	Charge Pins
-#define		GPIO_DET_5V			P1
-#define		GPIO_DET_CHG		P2
-#define		GPIO_DET_BAT_EN		P14
-#define		GPIO_DET_BAT		P11
-#define		GPIO_DET_BAT_AD		ADC_CH1N_P11
-//	Sensor Pins
-#define		GPIO_DRIVE_CLK		P31
-#define		GPIO_DRIVE_DAT		P32
-
-#endif
 
 /*------------------------------------------------------------------*/
 /*						MACROS										*/
 /*------------------------------------------------------------------*/
-#define		BIT_LED_BUFFER_DP				(7)
+#define RF_START_CODE_L_MIN      95		//	start minimum 4ms
+#define RF_DATA_H_ONE_MAX        17		//	1 H maximum	1.4ms
+#define RF_DATA_H_ONE_MIN        9		//	1 H minimum 0.6ms
+#define RF_DATA_H_ZERO_MAX       8		//	0 H maximum 0.4ms
+#define RF_DATA_H_ZERO_MIN       2		//	0 H minimum 0.15ms
+#define RF_DATA_COUNT            32		//	24bits
 
-#define		BIT_COUNT_FLAG_CYCLE			(6)
-#define		BIT_COUNT_FLAG_START_SOTP		(4)
-#define		BIT_COUNT_FLAG_TIME				(2)
-#define		BIT_COUNT_FLAG_CNT				(0)
-
-#define		BIT_CHOOSE_SWITCH_MODE			(4)
-#define		BIT_CHOOSE_TIME_CNT				(0)
+//	FS_ID
+#define		SNV_FS_ID_PSK			(0xA0)
 
 #define		SET_BIT_X(a, b)					(a |= BIT(b))
 #define		RESET_BIT_X(a, b)				(a &= ~BIT(b))
@@ -201,27 +154,44 @@ typedef		enum
 
 typedef	struct
 {
+	uint8	data_tail;
+	uint8	data_head;
+	uint8	high_low[200];
+	uint8	key_press_flag;
+	uint16	time_span[200];
+	uint32	key_data;
+	uint32	get_key_data;
+}lc_433m_rec_t;
+
+typedef	struct
+{
 	uint8		app_write_data[20];
 	uint8		app_notify_data[20];
 	uint8		app_write_len;
 	uint8		app_notify_len;
+	uint8		app_connHandle;
 }lc_app_set_t;
 
 typedef struct
 {
-	uint32			dev_timeout_poweroff_cnt;		//	power off time
+	uint8	ble_con_st;
+	uint8	ble_con_handle;
+	uint8	authenticated_flag;
+}dev_con_t;
+
+typedef struct
+{
+	dev_con_t		dev_con_param[MAX_NUM_LL_CONN];
 	uint8			dev_ble_mac[6];
-	uint8			dev_timer_poweroff_flag;		//	power off timer enable flag			:1	enable,		0	disable
-	uint8			dev_poweron_switch_flag;		//	power on switch exist or not		:1	no switch,	0	
-	uint8			dev_power_flag;					//	device working flag					:1	working,	0	power off
-	uint8			dev_ble_con_state;				//	BLE	connection state				:1	connected,	0	disconnected
-	uint8			dev_charging_flag;				//	1	charging,	0	no charging
+	uint8			dev_psk[6];
+	uint8			dev_psk_flag;
 }lc_dev_sys_param;
 
 
 /*------------------------------------------------------------------*/
 /* 					 external variables							 	*/
 /*------------------------------------------------------------------*/
+extern	lc_433m_rec_t	LC_433m_Data;
 extern	lc_app_set_t		LC_App_Set_Param;
 extern	lc_dev_sys_param	LC_Dev_System_Param;
 /*------------------------------------------------------------------*/

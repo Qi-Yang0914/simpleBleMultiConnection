@@ -90,14 +90,6 @@ static void LC_KeyScanf(void)
 void LC_Key_Task_Init(uint8 task_id)
 {
     LC_Key_TaskID = task_id;
-	if(LC_Dev_System_Param.dev_power_flag == SYSTEM_WORKING)
-	{
-		LOG("power on led\n");
-	}
-	else if(LC_Dev_System_Param.dev_power_flag == SYSTEM_CHARGINE)
-	{
-		osal_start_timerEx(LC_Key_TaskID, KEY_CHARG_CHECK_EVT, 500);
-	}
 }
 /*!
  *	@fn			LC_Key_ProcessEvent
@@ -134,13 +126,11 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
 		static	uint8	Key_Long_Press_3s_Enable	=	0;		//key pressed 3s once
 		static	uint8	Key_Press_Once_Enable		=	0;		//key pressed once flag
 		static	uint8 	Key_Long_Press_5s_Enable	=	0;
-		// static	uint8	Key_Press_Twice_Enable		=	0;
-		// static	uint8	Key_Value_Reserved			=	0;
         LC_key_time_temp = hal_systick() | 1;
 
 		if(LC_Key_Param.key_down_flag)
 		{
-			if((LC_last_button_numbale) && clock_time_exceed_func(LC_last_button_press_time,2000))
+			if((LC_last_button_numbale) && clock_time_exceed_func(LC_last_button_press_time,3000))
 			{
 				LC_Key_Param.key_repeated_num	=	0;
 				if(Key_Long_Press_3s_Enable == 0)
@@ -152,8 +142,6 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
 					if(Key_Long_Press_5s_Enable == 0)
 					{
 						Key_Long_Press_5s_Enable = 1;
-						LC_Dev_System_Param.dev_power_flag	=	SYSTEM_POWEROFF;
-						osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, UI_EVENT_LEVEL1, 100);
 					}
 				}
 			}
@@ -166,10 +154,6 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
 				Key_Press_Once_Enable		=	1;
 				LOG("Key_Long_Release:\n");
 			}
-			if(Key_Long_Press_5s_Enable == 1)
-			{
-				Key_Long_Press_5s_Enable = 0;
-			}
 		}
 
         if (LC_Key_Param.key_down_flag)
@@ -179,6 +163,11 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
                 LC_last_button_pressed = 1;
                 LC_last_button_press_time = LC_key_time_temp;
                 LC_last_button_numbale = LC_Key_Param.key_down_flag;
+				if(Key_Press_Once_Enable == 0)
+				{
+					Key_Press_Once_Enable = 1;
+					LOG("key press %d\n", LC_last_button_numbale);
+				}
             }
         }
         else
@@ -187,37 +176,23 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
             {
                 LC_last_button_release_time = LC_key_time_temp;
                 LC_last_button_pressed = 0;
+				if(Key_Press_Once_Enable == 1)
+				{
+					Key_Press_Once_Enable = 0;
+					LOG("key release %d\n", LC_last_button_numbale);
+				}
             }
         }
         if (LC_Key_Param.key_repeated_num && LC_Key_Param.key_down_sys_tick && clock_time_exceed_func(LC_Key_Param.key_down_sys_tick, 350))
         {
             LOG("Key total Kick num: %d\n", LC_Key_Param.key_repeated_num);
-			if(Key_Press_Once_Enable == 0)
-			{
-				Key_Press_Once_Enable	=	1;
-				if(LC_Key_Param.key_repeated_num == 1)
-				{
-				}
-				else if(LC_Key_Param.key_repeated_num == 2)
-				{
-				}
-
-			}
-			if(Key_Press_Once_Enable == 1)
-			{
-				LOG("key release\n");
-				Key_Press_Once_Enable	=	0;
-			}
-
             LC_Key_Param.key_down_sys_tick = 0;
             LC_Key_Param.key_repeated_num = 0;
-            // Key_Value_Reserved = 0;
         }
         if (LC_last_button_numbale && !LC_Key_Param.key_down_flag && clock_time_exceed_func(LC_last_button_press_time, 50))
         {
-            LC_Key_Param.key_repeated_num++ ;
+            // LC_Key_Param.key_repeated_num++ ;
             LC_Key_Param.key_down_sys_tick = LC_key_time_temp;
-			// Key_Value_Reserved	=	LC_last_button_numbale;
             LOG("key time num: %d, key is%d\n", LC_Key_Param.key_repeated_num, LC_last_button_numbale);
             LC_last_button_numbale = 0;
         }
@@ -243,39 +218,6 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
         osal_stop_timerEx(LC_Key_TaskID, KEY_SCANF_EVT);
         return (events ^ KEY_STOPSCANF_EVT);
     }
-
-	if(events & KEY_CHARG_CHECK_EVT)
-	{
-		static	uint8	check_full_cnt	=	0;
-		static	uint8	check_DC5V_cnt	=	0;
-		osal_start_reload_timer(LC_Key_TaskID, KEY_CHARG_CHECK_EVT, 500);
-
-		if(hal_gpio_read(GPIO_DET_5V) == 0)
-		{
-			check_DC5V_cnt++;
-			if(check_DC5V_cnt > 3)
-			{
-				check_DC5V_cnt	=	0;
-				check_full_cnt	=	0;
-				LOG("charge stop\n");
-				osal_stop_timerEx(LC_Key_TaskID, KEY_CHARG_CHECK_EVT);
-			}
-		}
-		else
-		{
-			check_DC5V_cnt	=	0;
-			if(hal_gpio_read(GPIO_DET_CHG) == 1)
-			{
-				check_full_cnt++;
-				if(check_full_cnt > 4)
-				{
-					LOG("charge finish\n");
-					check_full_cnt	=	0;
-				}
-			}
-		}
-		return(events ^ KEY_CHARG_CHECK_EVT);
-	}
 
     // Discard unknown events
     return 0;

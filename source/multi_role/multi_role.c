@@ -158,7 +158,7 @@ uint8 multiRole_TaskId;
 */
 #if ( MAX_CONNECTION_SLAVE_NUM > 0 )
     static void multiRoleAPP_AdvInit(void);
-    static void multiRole_setup_adv_scanRspData(uint8 idx);
+    // static void multiRole_setup_adv_scanRspData(uint8 idx);
     static void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len );
 #endif
 
@@ -498,6 +498,8 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
         {
             // slave role establish success, delete advertising schedule node
             // note: est conn success, del the busy node (ADV node) by calling the multiConfigLink_status function in the multiconfig. c file
+            LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = TRUE;
+            LC_Dev_System_Param.dev_con_param[perIdx].ble_con_handle = connHandle;
         }
     }
     else
@@ -536,6 +538,9 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
 
     if( role == Slave_Role )
     {
+        LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = FALSE;
+        LC_Dev_System_Param.dev_con_param[perIdx].ble_con_handle = 0xFF;
+
         // 0x01 : enable flag
         uint32 en_flag = ( 1 << ( 4 + perIdx) ) | 0x01 ;
 
@@ -671,38 +676,38 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
     }
 }
 
-static void multiRole_setup_adv_scanRspData(uint8 idx)
-{
-    // Multi-role Advertising Data & Scan Response Data
-    uint8 gapMultiRole_AdvertData[] =
-    {
-        // flags
-        0x02,
-        GAP_ADTYPE_FLAGS,
-        GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-		0x03,
-		GAP_ADTYPE_16BIT_COMPLETE,
-		0x12, 0x18,
-        0x10,                             // length of this data
-        GAP_ADTYPE_LOCAL_NAME_COMPLETE, // AD Type = Complete local name
-        'w','e','L','o','g','r','a','r', '-', 'X','X','X','X','X','X',
-    };
-    uint8  gapMultiRole_ScanRspData[] =
-    {
-		// manufacture
-		0x12,
-		GAP_ADTYPE_MANUFACTURER_SPECIFIC,
-		0xFF,0xFF,
-		0xff,0xff,0xff,0xff,0xff,0xff,
-		0x66,
-		0xFF,0xFF,
-		0x01,0x00,0x01,
-		0x0a,0x02,
-		0x00,
-    };
-    multiSchedule_advParam_init(idx,GAPMULTIROLE_ADVERT_DATA,sizeof( gapMultiRole_AdvertData ), gapMultiRole_AdvertData);
-    multiSchedule_advParam_init(idx,GAPMULTIROLE_SCAN_RSP_DATA,sizeof( gapMultiRole_ScanRspData ), gapMultiRole_ScanRspData);
-}
+// static void multiRole_setup_adv_scanRspData(uint8 idx)
+// {
+//     // Multi-role Advertising Data & Scan Response Data
+//     uint8 gapMultiRole_AdvertData[] =
+//     {
+//         // flags
+//         0x02,
+//         GAP_ADTYPE_FLAGS,
+//         GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+// 		0x03,
+// 		GAP_ADTYPE_16BIT_COMPLETE,
+// 		0x12, 0x18,
+//         0x10,                             // length of this data
+//         GAP_ADTYPE_LOCAL_NAME_COMPLETE, // AD Type = Complete local name
+//         'w','e','L','o','g','r','a','r', '-', 'X','X','X','X','X','X',
+//     };
+//     uint8  gapMultiRole_ScanRspData[] =
+//     {
+// 		// manufacture
+// 		0x12,
+// 		GAP_ADTYPE_MANUFACTURER_SPECIFIC,
+// 		0xFF,0xFF,
+// 		0xff,0xff,0xff,0xff,0xff,0xff,
+// 		0x66,
+// 		0xFF,0xFF,
+// 		0x01,0x00,0x01,
+// 		0x0a,0x02,
+// 		0x00,
+//     };
+//     multiSchedule_advParam_init(idx,GAPMULTIROLE_ADVERT_DATA,sizeof( gapMultiRole_AdvertData ), gapMultiRole_AdvertData);
+//     multiSchedule_advParam_init(idx,GAPMULTIROLE_SCAN_RSP_DATA,sizeof( gapMultiRole_ScanRspData ), gapMultiRole_ScanRspData);
+// }
 
 #endif
 

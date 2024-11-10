@@ -34,7 +34,6 @@ extern "C"
 #define		KEY_EVENT_LEVEL1	0x0001
 #define		KEY_SCANF_EVT		0x0002
 #define		KEY_STOPSCANF_EVT	0x0004
-#define		KEY_CHARG_CHECK_EVT	0x0008
 
 /*------------------------------------------------------------------*/
 /*						Data structures								*/

@@ -99,6 +99,13 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
 {
     switch (pin)
     {
+        case GPIO_KEY_PWR:
+            if(type == NEGEDGE)
+            {
+                hal_gpioin_register(GPIO_KEY_PWR, NULL, NULL);
+                osal_start_timerEx(LC_Key_TaskID, KEY_SCANF_EVT, 20);
+            }
+        break;
 		default:
 
 			break;
@@ -111,10 +118,32 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
  *	@param[in]	type	:type of interrupe.
  *	@return		none.
  */
-// void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Gpio_IR_IntHandler(GPIO_Pin_e pin, IO_Wakeup_Pol_e type)
-// {
-// 	;
-// }
+void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Gpio_IR_IntHandler(GPIO_Pin_e pin, IO_Wakeup_Pol_e type)
+{
+	switch(pin){
+		case	GPIO_RF_433M:
+			if(type == NEGEDGE)
+			{
+				LC_433m_Data.data_head++;
+				LC_433m_Data.data_head	%=	200;
+				LC_433m_Data.time_span[LC_433m_Data.data_head]	=	LC_IR_Analysis_100ns_Cnt;
+				LC_433m_Data.high_low[LC_433m_Data.data_head]	=	1;
+				LC_IR_Analysis_100ns_Cnt	=	0;
+			}
+			else
+			{
+				LC_433m_Data.data_head++;
+				LC_433m_Data.data_head	%=	200;
+				LC_433m_Data.time_span[LC_433m_Data.data_head]	=	LC_IR_Analysis_100ns_Cnt;
+				LC_433m_Data.high_low[LC_433m_Data.data_head]	=	0;
+				LC_IR_Analysis_100ns_Cnt	=	0;
+			}
+		break;
+		default:
+		
+		break;
+	}
+}
 
 /** @}*/
 
