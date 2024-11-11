@@ -47,6 +47,8 @@ LR_ROM_XIP  0x11020000 0x020000 {
    gpio.o(+RO)
    timer.o(+RO)
    lc_uart.o(+RO)
+   lc_key.o(+RO)
+   lc_ui_led_buzzer.o(+RO)
    
    .ANY(.constdata)
   }

@@ -150,8 +150,6 @@ int     LC_Uart_TXDataDown(void)
 void    LC_Uart_Task_Init(uint8 task_id)
 {
     LC_Uart_TaskID  =   task_id;
-	hal_pwrmgr_register(MOD_USR8, NULL, NULL);
-	hal_pwrmgr_lock(MOD_USR8);
     LC_Uart_Init();
     LOG("uart task init\n");
 }

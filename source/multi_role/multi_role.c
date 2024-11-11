@@ -664,7 +664,14 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
     {
     case MULTIPROFILE_CHAR1:
         MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR1, newValue );
-        MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
+		if((newValue[0] == 0x11) && (newValue[1] == 0x22))
+		{
+			if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+2, 6))
+			{
+				MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
+			}
+		}
+        // MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
         break;
 
     case MULTIPROFILE_CHAR2:

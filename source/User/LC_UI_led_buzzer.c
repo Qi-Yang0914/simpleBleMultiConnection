@@ -12,6 +12,8 @@
  
 #include "LC_UI_Led_Buzzer.h"
 #include "LC_Event_Handler.h"
+#include "LC_Uart.h"
+#include "multiRoleProfile.h"
 /*------------------------------------------------------------------*/
 /* 					 	local variables			 					*/
 /*------------------------------------------------------------------*/
@@ -32,8 +34,8 @@ static	void	LC_RF433M_Deal_Key(void)
 	uint16	LC_IR_Keyboard_Num		=	0; 
 	uint16	LC_IR_Keyboard_UserNum	=	0;
 	
-	LC_IR_Keyboard_Num		=	(uint16)((LC_433m_Data.key_data) & 0x0000ffff);
-	LC_IR_Keyboard_UserNum	=	(uint16)((LC_433m_Data.key_data >> 16) & 0x0000ffff);
+	LC_IR_Keyboard_Num		=	(uint16)((LC_433m_Data.key_data) & 0x000000ff);
+	LC_IR_Keyboard_UserNum	=	(uint16)((LC_433m_Data.key_data >> 8) & 0x0000ffff);
 	LOG("ir analysis key 0x%08x 0x%08x\n",LC_IR_Keyboard_UserNum, LC_IR_Keyboard_Num);
 	if(LC_IR_Keyboard_UserNum == IR_KeyBoard_Type_24Keys)
 	{
@@ -149,6 +151,8 @@ static	void	LC_RF433_Check_Serial(void)
 void LC_UI_Led_Buzzer_Task_Init(uint8 task_id)
 {
 	LC_Ui_Led_Buzzer_TaskID	=	task_id;
+	BSP_Pin_Init();
+	LC_Timer_Start();
 	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
 }
 /*!
@@ -178,18 +182,6 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 	if(events & UI_EVENT_LEVEL1)
 	{
 		return(events ^ UI_EVENT_LEVEL1);
-	}
-
-	if(events & DEAL_APP_DATA_EVT)
-	{
-		LOG("APP Send Data connHandle %d \n", LC_App_Set_Param.app_connHandle);
-		LOG_DUMP_BYTE(LC_App_Set_Param.app_write_data, LC_App_Set_Param.app_write_len);
-		if(LC_App_Set_Param.app_write_data[0] == 0x54 && LC_App_Set_Param.app_write_data[1] == 0x42)
-		{
-
-		}
-
-		return(events ^ DEAL_APP_DATA_EVT);
 	}
 
 	if(events & RF_433M_CHECK_EVT)

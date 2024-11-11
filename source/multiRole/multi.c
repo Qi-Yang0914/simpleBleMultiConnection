@@ -627,7 +627,7 @@ void GAPMultiRole_Init(uint8 taskId)
     GATT_RegisterForInd( gapMultiRole_TaskID );
     #endif
 //     Register with bond manager after starting device
-    GAPBondMgr_Register( (gapBondCBs_t*) &multiRoleBondCB );
+    // GAPBondMgr_Register( (gapBondCBs_t*) &multiRoleBondCB );
 //    GAP_RegisterForHCIMsgs( taskId );
 //    HCI_PPLUS_AdvEventDoneNoticeCmd(gapMultiRole_TaskID,MULTI_ADV_EVENT_DONE_EVT);
     #ifndef BLE_AT_ENABLE

@@ -100,19 +100,17 @@ void LC_Common_ProcessOSALMsg(osal_event_hdr_t *pMsg)
 	}
 }
 
-
+extern	void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt);
 void LC_Timer_Start(void)
 {
-	// hal_timer_init(LC_RGB_Valeu_Deal);
-	// hal_timer_set(AP_TIMER_ID_5, 10*1000);
-	// hal_timer_set(AP_TIMER_ID_6, 5*1000);
-//	LOG("Start timer:\n");
+	hal_timer_init(LC_RGB_Valeu_Deal);
+	hal_timer_set(AP_TIMER_ID_5, 100);
+	LOG("Start timer:\n");
 }
 void LC_Timer_Stop(void)
 {
 	hal_timer_stop(AP_TIMER_ID_5);
-	// hal_timer_stop(AP_TIMER_ID_6);
-//	LOG("Stop timer\n");
+	// LOG("Stop timer\n");
 }
 // /*!
 //  *	@fn			LC_Switch_Poweron

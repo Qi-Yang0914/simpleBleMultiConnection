@@ -34,13 +34,13 @@
  *	@param[in]	evt		:IRQ event.
  *	@return		none.
  */
-// void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt)
-// {
-// 	if(evt == HAL_EVT_TIMER_5)
-// 	{
-// 		;
-// 	}
-// }
+void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt)
+{
+	if(evt == HAL_EVT_TIMER_5)
+	{
+		LC_IR_Analysis_100ns_Cnt++;
+	}
+}
 /**
  * @brief 
  * 

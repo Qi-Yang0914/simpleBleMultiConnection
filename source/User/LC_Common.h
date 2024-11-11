@@ -48,9 +48,9 @@
 /*						Pins definitions							*/
 /*------------------------------------------------------------------*/
 //	RF 433M
-#define		GPIO_RF_433M	P34
+#define		GPIO_RF_433M	P7
 //	Key Pins
-#define		GPIO_KEY_PWR	P0
+#define		GPIO_KEY_PWR	P14
 
 
 
@@ -62,7 +62,7 @@
 #define RF_DATA_H_ONE_MIN        9		//	1 H minimum 0.6ms
 #define RF_DATA_H_ZERO_MAX       8		//	0 H maximum 0.4ms
 #define RF_DATA_H_ZERO_MIN       2		//	0 H minimum 0.15ms
-#define RF_DATA_COUNT            32		//	24bits
+#define RF_DATA_COUNT            24		//	24bits
 
 //	FS_ID
 #define		SNV_FS_ID_PSK			(0xA0)

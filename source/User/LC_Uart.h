@@ -31,8 +31,8 @@
 /*						MACROS										*/
 /*------------------------------------------------------------------*/
 #define     Uart_Baudrate       115200
-#define     UART_RX_BUF_SIZE    256
-#define     UART_TX_BUF_SIZE    256
+#define     UART_RX_BUF_SIZE    96
+#define     UART_TX_BUF_SIZE    96
 
 #define		UART_CMD_LEN		16
 /*------------------------------------------------------------------*/
