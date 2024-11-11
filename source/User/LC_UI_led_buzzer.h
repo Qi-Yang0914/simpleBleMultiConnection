@@ -35,6 +35,7 @@ extern	"C"	{
 /*						UI Task Events definitions					*/
 /*------------------------------------------------------------------*/
 #define		UI_EVENT_LEVEL1		0x0001
+#define     SNV_FS_DEAL_EVT     0x0002
 #define     RF_433M_CHECK_EVT   0x0004
 #define     RF_433M_DEAL_EVT    0x0008
 /*------------------------------------------------------------------*/

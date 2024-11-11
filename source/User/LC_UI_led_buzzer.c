@@ -152,8 +152,8 @@ void LC_UI_Led_Buzzer_Task_Init(uint8 task_id)
 {
 	LC_Ui_Led_Buzzer_TaskID	=	task_id;
 	BSP_Pin_Init();
-	LC_Timer_Start();
-	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+	// LC_Timer_Start();
+	// osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
 }
 /*!
  *	@fn			LC_UI_Led_Buzzer_ProcessEvent
@@ -184,6 +184,19 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 		return(events ^ UI_EVENT_LEVEL1);
 	}
 
+	if(events & SNV_FS_DEAL_EVT)
+	{
+		if(LC_Dev_System_Param.dev_psk_flag == 2)
+		{
+			uint8 fs_buffer[8] = {0x99, 0x98,};
+			osal_memcpy(fs_buffer + 2, LC_Dev_System_Param.dev_psk, 6);
+			osal_snv_write(SNV_FS_ID_PSK, 8, fs_buffer);
+			LC_Dev_System_Param.dev_psk_flag = 1;
+			MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, 2, fs_buffer);
+		}
+		return(events ^ SNV_FS_DEAL_EVT);
+	}
+
 	if(events & RF_433M_CHECK_EVT)
 	{
 		LC_RF433_Check_Serial();
@@ -199,6 +212,7 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 		}
 		return(events ^ RF_433M_DEAL_EVT);
 	}
+
 
     // Discard unknown events
     return 0;

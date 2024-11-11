@@ -184,7 +184,7 @@ typedef struct
 	dev_con_t		dev_con_param[MAX_NUM_LL_CONN];
 	uint8			dev_ble_mac[6];
 	uint8			dev_psk[6];
-	uint8			dev_psk_flag;
+	uint8			dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
 }lc_dev_sys_param;
 
 

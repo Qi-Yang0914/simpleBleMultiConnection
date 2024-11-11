@@ -55,6 +55,8 @@
 #endif
 
 #include "LC_Common.h"
+#include "LC_UI_led_buzzer.h"
+#include "LC_Uart.h"
 /*********************************************************************
     MACROS
 */
@@ -671,6 +673,20 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
 				MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
 			}
 		}
+        else if((newValue[0] == 0x33) && (newValue[1] == 0x44))
+        {
+            LC_Timer_Start();
+            osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+        }
+        else if((newValue[0] == 0x35) && (newValue[1] == 0x36))
+        {
+            LC_UART_TX_Send(newValue + 2, len-2);
+            MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
+        }
+        else if((newValue[0] == 0x11) || (newValue[0] == 0x88))
+        {
+            MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 1, newValue);
+        }
         // MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
         break;
 
