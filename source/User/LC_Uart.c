@@ -25,18 +25,10 @@ BUP_ctx_t   mBUP_Ctx;
 /*------------------------------------------------------------------*/
 /* 					 	local variables		 					    */
 /*------------------------------------------------------------------*/
-static uint8 UartData[20];
 static uint8 UartDataLen;
 /*------------------------------------------------------------------*/
 /* 					 	local functions                             */
 /*------------------------------------------------------------------*/
-// static  void    on_BUP_Evt(BUP_Evt_t* pev)
-// {
-//     switch(pev->ev){
-
-//     }
-// }
-
 //timer for uart send delay slot
 static  void    rx_start_timer(uint16_t timeout)
 {
@@ -202,8 +194,7 @@ uint16	LC_Uart_ProcessEvent(uint8 task_id, uint16 events)
             UartDataLen = ((pctx->rx_size - pctx->rx_offset));
             LOG("uart data:\n");
             LOG_DUMP_BYTE(pctx->rx_buf + pctx->rx_offset, UartDataLen);
-			osal_memcpy(UartData, pctx->rx_buf+pctx->rx_offset, UartDataLen);
-			osal_set_event(LC_Uart_TaskID, UART_EVT_DEAL_CMD);
+			MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, UartDataLen, pctx->rx_buf + pctx->rx_offset);
             // LOG("Success\n");
             pctx->rx_state = BUP_RX_ST_IDLE;
             pctx->rx_offset = 0;
@@ -231,16 +222,6 @@ uint16	LC_Uart_ProcessEvent(uint8 task_id, uint16 events)
         LC_Uart_TXDataDown();
         return(events ^ UART_EVT_UART_TX_COMPLETE);
     }
-
-	if(events & UART_EVT_DEAL_CMD)
-	{
-		if((UartData[0] == 0x54) && (UartData[1] == 0x42))
-		{
-		}
-		osal_memset(UartData, 0, UartDataLen);
-		UartDataLen = 0;
-		return(events ^ UART_EVT_DEAL_CMD);
-	}
 
     // Discard unknown events
     return 0;

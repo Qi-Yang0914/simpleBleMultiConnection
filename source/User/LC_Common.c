@@ -101,9 +101,17 @@ void LC_Common_ProcessOSALMsg(osal_event_hdr_t *pMsg)
 }
 
 extern	void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt);
-void LC_Timer_Start(void)
+extern	void	__ATTR_SECTION_SRAM__	__attribute__((used))	LC_RF_433M_Send(uint8 evt);
+void LC_Timer_Start(time_evt_e evt_type)
 {
-	hal_timer_init(LC_RGB_Valeu_Deal);
+	if(evt_type == TIME_EVT_LEARN)
+	{
+		hal_timer_init(LC_RGB_Valeu_Deal);
+	}
+	else if(evt_type == TIME_EVT_SEND)
+	{
+		hal_timer_init(LC_RF_433M_Send);
+	}
 	hal_timer_set(AP_TIMER_ID_5, 100);
 	LOG("Start timer:\n");
 }
@@ -163,13 +171,20 @@ void BSP_Pin_Init(void)
 {
 	hal_pwrmgr_register(MOD_USR8, NULL, NULL);
 	hal_pwrmgr_lock(MOD_USR8);
-	hal_gpio_pin_init(GPIO_RF_433M, IE);
-	hal_gpio_pull_set(GPIO_RF_433M, STRONG_PULL_UP);
-	hal_gpioin_register(GPIO_RF_433M, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
+	// hal_gpio_pin_init(GPIO_RF_433M, IE);
+	// hal_gpio_pull_set(GPIO_RF_433M, STRONG_PULL_UP);
+	// hal_gpioin_register(GPIO_RF_433M, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
 
 	hal_gpio_pin_init(GPIO_KEY_PWR, IE);
 	hal_gpio_pull_set(GPIO_KEY_PWR, STRONG_PULL_UP);
 	hal_gpioin_register(GPIO_KEY_PWR, NULL, LC_Key_Pin_IntHandler);
+	uint8 fs_buffer[8] = {0, 0};
+	osal_snv_read(SNV_FS_ID_PSK, 8, fs_buffer);
+	if(fs_buffer[0] == 0x99 && fs_buffer[1] == 0x98)
+	{
+		LC_Dev_System_Param.dev_psk_flag = 1;
+		osal_memcpy(LC_Dev_System_Param.dev_psk, fs_buffer + 2, 6);
+	}
 }
 
 /*!

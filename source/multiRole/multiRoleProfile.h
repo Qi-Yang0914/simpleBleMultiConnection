@@ -38,6 +38,9 @@ extern "C"
 #define MULTIPROFILE_CHAR1             0x02
 #define MULTIPROFILE_CHAR2             0x03
 
+
+#define PRIFILECHAR_VALUE_LEN		(20)
+
 /*********************************************************************
     Profile Callbacks
 */

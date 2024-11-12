@@ -31,25 +31,56 @@ volatile uint32 LC_IR_Analysis_KeyValue = 0;
 /*------------------------------------------------------------------*/
 static	void	LC_RF433M_Deal_Key(void)
 {
-	uint16	LC_IR_Keyboard_Num		=	0; 
-	uint16	LC_IR_Keyboard_UserNum	=	0;
-	
-	LC_IR_Keyboard_Num		=	(uint16)((LC_433m_Data.key_data) & 0x000000ff);
-	LC_IR_Keyboard_UserNum	=	(uint16)((LC_433m_Data.key_data >> 8) & 0x0000ffff);
-	LOG("ir analysis key 0x%08x 0x%08x\n",LC_IR_Keyboard_UserNum, LC_IR_Keyboard_Num);
-	if(LC_IR_Keyboard_UserNum == IR_KeyBoard_Type_24Keys)
+	static uint32 per_data;
+	static uint8 data_cnt;
+	LOG("RF 433M CMD 0x%8x\n", LC_433m_Data.key_data);
+	data_cnt++;
+	if(data_cnt >= 3)
 	{
-		if(deal_rf433_key == 0)
+		if(per_data == 0)
 		{
-			deal_rf433_key	=	1;
-			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_DEAL_EVT, 300);
+			per_data = (LC_433m_Data.key_data >> 4);
 		}
 		else
 		{
-			return;
+			if(per_data == (LC_433m_Data.key_data >> 4))
+			{
+				if(data_cnt > 6)
+				{
+					LOG("learn finish\n");
+				}
+			}
+			else
+			{
+				if(data_cnt > 5)
+				{
+					LOG("learn again\n");
+					data_cnt = 0;
+					per_data = 0;
+				}
+			}
 		}
-		LOG("ir analysis key 0x%08x 0x%08x\n",LC_IR_Keyboard_UserNum, LC_IR_Keyboard_Num);
 	}
+
+	// uint16	LC_IR_Keyboard_Num		=	0; 
+	// uint16	LC_IR_Keyboard_UserNum	=	0;
+	
+	// LC_IR_Keyboard_Num		=	(uint16)((LC_433m_Data.key_data) & 0x000000ff);
+	// LC_IR_Keyboard_UserNum	=	(uint16)((LC_433m_Data.key_data >> 8) & 0x0000ffff);
+	// LOG("ir analysis key 0x%08x 0x%08x\n",LC_IR_Keyboard_UserNum, LC_IR_Keyboard_Num);
+	// if(LC_IR_Keyboard_UserNum == IR_KeyBoard_Type_24Keys)
+	// {
+	// 	if(deal_rf433_key == 0)
+	// 	{
+	// 		deal_rf433_key	=	1;
+	// 		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_DEAL_EVT, 300);
+	// 	}
+	// 	else
+	// 	{
+	// 		return;
+	// 	}
+	// 	LOG("ir analysis key 0x%08x 0x%08x\n",LC_IR_Keyboard_UserNum, LC_IR_Keyboard_Num);
+	// }
 	
 }
 /**
@@ -139,7 +170,35 @@ static	void	LC_RF433_Check_Serial(void)
 /*------------------------------------------------------------------*/
 /* 					 	public functions		 					*/
 /*------------------------------------------------------------------*/
+void RF_Start_Receive(void)
+{
+	hal_gpio_pin_init(GPIO_RF_433M, IE);
+	hal_gpio_pull_set(GPIO_RF_433M, STRONG_PULL_UP);
+	hal_gpioin_register(GPIO_RF_433M, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
 
+	LC_Timer_Start(TIME_EVT_LEARN);
+	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+}
+
+void RF_Stop_Receive(void)
+{
+	hal_gpio_pull_set(GPIO_RF_433M, FLOATING);
+	hal_gpioin_register(GPIO_RF_433M, NULL, NULL);
+	hal_gpioin_disable(GPIO_RF_433M);
+	LC_Timer_Stop();
+}
+
+void RF_Start_Send(uint32 cmd)
+{
+	LC_Dev_System_Param.dev_rf_cmd = cmd;
+	LC_Dev_System_Param.dev_rf_cmd_bit_index = 0;
+	LC_Dev_System_Param.dev_rf_send_times = 50;
+	LC_Dev_System_Param.dev_rf_send_index = 0;
+	hal_gpioin_disable(GPIO_RF_433M);
+	hal_gpio_pin_init(GPIO_RF_433M, OEN);
+	LC_Timer_Start(TIME_EVT_SEND);
+
+}
 
 /*!
  *	@fn			LC_UI_Led_Buzzer_Task_Init 
@@ -152,8 +211,7 @@ void LC_UI_Led_Buzzer_Task_Init(uint8 task_id)
 {
 	LC_Ui_Led_Buzzer_TaskID	=	task_id;
 	BSP_Pin_Init();
-	// LC_Timer_Start();
-	// osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+	RF_Start_Receive();
 }
 /*!
  *	@fn			LC_UI_Led_Buzzer_ProcessEvent
@@ -192,7 +250,7 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 			osal_memcpy(fs_buffer + 2, LC_Dev_System_Param.dev_psk, 6);
 			osal_snv_write(SNV_FS_ID_PSK, 8, fs_buffer);
 			LC_Dev_System_Param.dev_psk_flag = 1;
-			MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, 2, fs_buffer);
+			GAPMultiRole_TerminateConnection(0xffff);
 		}
 		return(events ^ SNV_FS_DEAL_EVT);
 	}

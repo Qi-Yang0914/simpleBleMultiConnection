@@ -500,8 +500,7 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
         {
             // slave role establish success, delete advertising schedule node
             // note: est conn success, del the busy node (ADV node) by calling the multiConfigLink_status function in the multiconfig. c file
-            LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = TRUE;
-            LC_Dev_System_Param.dev_con_param[perIdx].ble_con_handle = connHandle;
+            // LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = TRUE;
         }
     }
     else
@@ -540,8 +539,7 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
 
     if( role == Slave_Role )
     {
-        LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = FALSE;
-        LC_Dev_System_Param.dev_con_param[perIdx].ble_con_handle = 0xFF;
+        // LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = FALSE;
 
         // 0x01 : enable flag
         uint32 en_flag = ( 1 << ( 4 + perIdx) ) | 0x01 ;
@@ -660,39 +658,59 @@ static void multiRoleAPP_AdvInit(void)
 }
 void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
 {
-    uint8 newValue[ATT_MTU_SIZE];
+    uint8 newValue[PRIFILECHAR_VALUE_LEN];
 
     switch( paramID )
     {
     case MULTIPROFILE_CHAR1:
         MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR1, newValue );
-		if((newValue[0] == 0x11) && (newValue[1] == 0x22))
+		LOG("get data len [%d] :", len);
+		LOG_DUMP_BYTE(newValue, PRIFILECHAR_VALUE_LEN);
+		if(len  == 1)
 		{
-			if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+2, 6))
+			if((newValue[0] == 0x11) || (newValue[0] == 0x88))
 			{
-				MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
+				LC_UART_TX_Send(newValue, 1);
+			}			
+		}
+		else
+		{
+			if((newValue[0] == 0x11) && (newValue[1] == 0x22))
+			{
+				if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+2, 6))
+				{
+					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, len, newValue);
+				}
+				else
+				{
+					newValue[0] = 0x55;
+					newValue[1] = 0x66;
+					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
+					GAPMultiRole_TerminateConnection(LC_App_Set_Param.app_connHandle);
+				}
+			}
+			else if((newValue[0] == 0x99) && (newValue[1] == 0x98))
+			{
+				LC_Dev_System_Param.dev_psk_flag = 2;
+				osal_memcpy(LC_Dev_System_Param.dev_psk, newValue + 2, 6);
+				MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
+				osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SNV_FS_DEAL_EVT, 500);
+			}
+			else if((newValue[0] == 0x33) && (newValue[1] == 0x44))
+			{
+				// LC_Timer_Start();
+				// osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+			}
+			else if((newValue[0] == 0x35) && (newValue[1] == 0x36))
+			{
+				MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
+				LC_UART_TX_Send(newValue + 2, len-2);
 			}
 		}
-        else if((newValue[0] == 0x33) && (newValue[1] == 0x44))
-        {
-            LC_Timer_Start();
-            osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
-        }
-        else if((newValue[0] == 0x35) && (newValue[1] == 0x36))
-        {
-            LC_UART_TX_Send(newValue + 2, len-2);
-            MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
-        }
-        else if((newValue[0] == 0x11) || (newValue[0] == 0x88))
-        {
-            MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 1, newValue);
-        }
-        // MultiProfile_Notify(connHandle,MULTIPROFILE_CHAR2,len,newValue);
         break;
-
-    case MULTIPROFILE_CHAR2:
-        MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR2, newValue );
-        break;
+   // case MULTIPROFILE_CHAR2:
+    //     MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR2, newValue );
+    //     break;
 
     default:
         break;

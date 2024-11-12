@@ -123,38 +123,38 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
         static	uint32	LC_last_button_release_time = 0;
         static	uint32	LC_key_time_temp	= 0;
 
-		static	uint8	Key_Long_Press_3s_Enable	=	0;		//key pressed 3s once
-		static	uint8	Key_Press_Once_Enable		=	0;		//key pressed once flag
-		static	uint8 	Key_Long_Press_5s_Enable	=	0;
+		// static	uint8	Key_Long_Press_3s_Enable	=	0;		//key pressed 3s once
+		// static	uint8	Key_Press_Once_Enable		=	0;		//key pressed once flag
+		// static	uint8 	Key_Long_Press_5s_Enable	=	0;
         LC_key_time_temp = hal_systick() | 1;
 
-		if(LC_Key_Param.key_down_flag)
-		{
-			if((LC_last_button_numbale) && clock_time_exceed_func(LC_last_button_press_time,3000))
-			{
-				LC_Key_Param.key_repeated_num	=	0;
-				if(Key_Long_Press_3s_Enable == 0)
-				{
-					Key_Long_Press_3s_Enable	=	1;
-				}
-				if(clock_time_exceed_func(LC_last_button_press_time,5000))
-				{
-					if(Key_Long_Press_5s_Enable == 0)
-					{
-						Key_Long_Press_5s_Enable = 1;
-					}
-				}
-			}
-		}
-		else
-		{
-			if(Key_Long_Press_3s_Enable == 1)
-			{
-				Key_Long_Press_3s_Enable	=	0;
-				Key_Press_Once_Enable		=	1;
-				LOG("Key_Long_Release:\n");
-			}
-		}
+		// if(LC_Key_Param.key_down_flag)
+		// {
+		// 	if((LC_last_button_numbale) && clock_time_exceed_func(LC_last_button_press_time,3000))
+		// 	{
+		// 		LC_Key_Param.key_repeated_num	=	0;
+		// 		if(Key_Long_Press_3s_Enable == 0)
+		// 		{
+		// 			Key_Long_Press_3s_Enable	=	1;
+		// 		}
+		// 		if(clock_time_exceed_func(LC_last_button_press_time,5000))
+		// 		{
+		// 			if(Key_Long_Press_5s_Enable == 0)
+		// 			{
+		// 				Key_Long_Press_5s_Enable = 1;
+		// 			}
+		// 		}
+		// 	}
+		// }
+		// else
+		// {
+		// 	if(Key_Long_Press_3s_Enable == 1)
+		// 	{
+		// 		Key_Long_Press_3s_Enable	=	0;
+		// 		Key_Press_Once_Enable		=	1;
+		// 		LOG("Key_Long_Release:\n");
+		// 	}
+		// }
 
         if (LC_Key_Param.key_down_flag)
         {
@@ -163,11 +163,11 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
                 LC_last_button_pressed = 1;
                 LC_last_button_press_time = LC_key_time_temp;
                 LC_last_button_numbale = LC_Key_Param.key_down_flag;
-				if(Key_Press_Once_Enable == 0)
-				{
-					Key_Press_Once_Enable = 1;
-					LOG("key press %d\n", LC_last_button_numbale);
-				}
+				// if(Key_Press_Once_Enable == 0)
+				// {
+				// 	Key_Press_Once_Enable = 1;
+				// 	LOG("key press %d\n", LC_last_button_numbale);
+				// }
             }
         }
         else
@@ -176,11 +176,11 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
             {
                 LC_last_button_release_time = LC_key_time_temp;
                 LC_last_button_pressed = 0;
-				if(Key_Press_Once_Enable == 1)
-				{
-					Key_Press_Once_Enable = 0;
-					LOG("key release %d\n", LC_last_button_numbale);
-				}
+				// if(Key_Press_Once_Enable == 1)
+				// {
+				// 	Key_Press_Once_Enable = 0;
+				// 	LOG("key release %d\n", LC_last_button_numbale);
+				// }
             }
         }
         if (LC_Key_Param.key_repeated_num && LC_Key_Param.key_down_sys_tick && clock_time_exceed_func(LC_Key_Param.key_down_sys_tick, 350))
@@ -191,9 +191,15 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
         }
         if (LC_last_button_numbale && !LC_Key_Param.key_down_flag && clock_time_exceed_func(LC_last_button_press_time, 50))
         {
-            // LC_Key_Param.key_repeated_num++ ;
+            LC_Key_Param.key_repeated_num++ ;
             LC_Key_Param.key_down_sys_tick = LC_key_time_temp;
             LOG("key time num: %d, key is%d\n", LC_Key_Param.key_repeated_num, LC_last_button_numbale);
+			if(LC_Key_Param.key_repeated_num == 5)
+			{
+				uint8 psk_buffer[8] = {0x99, 0x98, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36};
+				osal_memcpy(LC_Dev_System_Param.dev_psk, psk_buffer + 2, 6);
+				osal_snv_write(SNV_FS_ID_PSK, 8, psk_buffer);
+			}
             LC_last_button_numbale = 0;
         }
         if (LC_Key_Param.key_down_flag || LC_Key_Param.key_repeated_num)

@@ -44,6 +44,8 @@
 #include "gpio.h"
 #include "watchdog.h"
 #include "LC_Event_Handler.h"
+#include "multiRoleProfile.h"
+#include "multi.h"
 /*------------------------------------------------------------------*/
 /*						Pins definitions							*/
 /*------------------------------------------------------------------*/
@@ -51,7 +53,9 @@
 #define		GPIO_RF_433M	P7
 //	Key Pins
 #define		GPIO_KEY_PWR	P14
-
+//	Uart
+#define		GPIO_UART_TX	P34
+#define		GPIO_UART_RX	P2
 
 
 /*------------------------------------------------------------------*/
@@ -66,47 +70,11 @@
 
 //	FS_ID
 #define		SNV_FS_ID_PSK			(0xA0)
+#define		SNV_FS_433M_KEY			(0xA1)
 
 #define		SET_BIT_X(a, b)					(a |= BIT(b))
 #define		RESET_BIT_X(a, b)				(a &= ~BIT(b))
 #define		GET_BIT_X(a, b)					(a & BIT(b))
-
-//	PWM Breath configuration
-#define		PWM_BREATH_MAX					(999)		//	16,000,000/4/1000	=	4,000Hz
-
-#define		HALL_ENABLE()					hal_gpio_write(GPIO_HALL_EN, 1)
-#define		LED_DRIVE_ENABLE()				hal_gpio_write(GPIO_LED_CTL, 0)
-
-#define		LED_MODE_COUNTDOWN_TIME_ON()	hal_gpio_write(GPIO_LED_2, 1)
-#define		LED_MODE_COUNTDOWN_TIME_OFF()	hal_gpio_write(GPIO_LED_2, 0)
-
-#define		LED_MODE_BLE_ON()				hal_gpio_write(GPIO_LED_1, 1)
-#define		LED_MDOE_BLE_OFF()				hal_gpio_write(GPIO_LED_1, 0)
-
-//	Timer interval
-#define		TIMER_1S					1
-#define		TIMER_2S					2
-#define		TIMER_3S					3
-#define		TIMER_6S					6
-#define		TIMER_500MS					7
-
-#define		LC_TIMER_INTERVAL			TIMER_1S
-
-#if (LC_TIMER_INTERVAL == TIMER_6S)
-#define		LC_DEV_TIMER_DISCON_PWROFF	( 5*10 + 1)
-#define		LC_DEV_TIMER_POWEROFF		(10*10 + 1)
-#define		LC_DEV_TIMER_SUSPEND		(10*10 + 1)
-#elif (LC_TIMER_INTERVAL == TIMER_1S)
-#define		LC_DEV_TIMER_DISCON_PWROFF	(5*60 + 1)
-#define		LC_DEV_TIMER_CON_PWROFF		(5*60 + 1)
-#define		LC_DEV_TIMER_POWEROFF		(10*60 + 1)
-#define		LC_DEV_TIMER_SUSPEND		(10*60 + 1)
-#define		LC_DEV_BOOST_TIMER_CON		(15U)
-#elif (LC_TIMER_INTERVAL == TIMER_500MS)
-#define		LC_DEV_TIMER_DISCON_PWROFF	(60 + 1)
-#define		LC_DEV_TIMER_POWEROFF		(10*60 + 1)
-#define		LC_DEV_TIMER_SUSPEND		(10*60 + 1)
-#endif
 
 /*------------------------------------------------------------------*/
 /*						UI Task Events definitions					*/
@@ -152,6 +120,13 @@ typedef		enum
 	SYSTEM_CHARGINE	=	3,
 }lc_sys_run_t;
 
+typedef	enum
+{
+	TIME_EVT_NONE = 0,
+	TIME_EVT_LEARN = 1,
+	TIME_EVT_SEND = 2,
+}time_evt_e;
+
 typedef	struct
 {
 	uint8	data_tail;
@@ -181,10 +156,15 @@ typedef struct
 
 typedef struct
 {
-	dev_con_t		dev_con_param[MAX_NUM_LL_CONN];
-	uint8			dev_ble_mac[6];
-	uint8			dev_psk[6];
-	uint8			dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
+	// dev_con_t		dev_con_param[MAX_NUM_LL_CONN];
+	uint8	dev_ble_mac[6];
+	uint8	dev_psk[6];
+	uint32	dev_rf_cmd;
+	uint8	dev_rf_cmd_bit_index;
+	uint8	dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
+	uint8	dev_rf_status;
+	uint8	dev_rf_send_times;
+	uint8	dev_rf_send_index;
 }lc_dev_sys_param;
 
 
@@ -200,7 +180,7 @@ extern	lc_dev_sys_param	LC_Dev_System_Param;
 uint32	clock_time_exceed_func			(uint32 ref,		uint32 span_ms	);
 uint8	halfbyte_into_str(uint8 byte);
 void	LC_Common_ProcessOSALMsg	 	(osal_event_hdr_t *pMsg				);
-void	LC_Timer_Start					(void);
+void	LC_Timer_Start					(time_evt_e evt_type);
 void	LC_Timer_Stop					(void);
 
 void BSP_Pin_Init(void);

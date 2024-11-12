@@ -88,7 +88,7 @@ static CONST gattAttrType_t multiProfileService = { ATT_UUID_SIZE, multiProfileS
 static uint8 multiProfileChar1Props = GATT_PROP_WRITE;
 
 // Characteristic 1 Value
-static uint8 multiProfileChar1[ATT_MTU_SIZE];
+static uint8 multiProfileChar1[PRIFILECHAR_VALUE_LEN];
 
 // multi Profile Characteristic 1 User Description
 static uint8 multiProfileChar1UserDesp[] = "Commmon TXRX\0";
@@ -97,7 +97,7 @@ static uint8 multiProfileChar1UserDesp[] = "Commmon TXRX\0";
 static uint8 multiProfileChar2Props = GATT_PROP_READ | GATT_PROP_NOTIFY;
 
 // Characteristic 2 Value
-static uint8 multiProfileChar2[ATT_MTU_SIZE];
+static uint8 multiProfileChar2[PRIFILECHAR_VALUE_LEN];
 static uint8 multiChar2NotifyLen = 0;
 
 // multi Profile Characteristic 6 User Description
@@ -334,11 +334,11 @@ bStatus_t MultiProfile_GetParameter( uint16 connHandle,uint8 param, void* value 
     switch ( param )
     {
     case MULTIPROFILE_CHAR1:
-        VOID osal_memcpy( value, multiProfileChar1, ATT_GetCurrentMTUSize( connHandle )-3 );
+        VOID osal_memcpy( value, multiProfileChar1, PRIFILECHAR_VALUE_LEN );
         break;
 
     case MULTIPROFILE_CHAR2:
-        VOID osal_memcpy( value, multiProfileChar2, ATT_GetCurrentMTUSize( connHandle )-3 );
+        VOID osal_memcpy( value, multiProfileChar2, PRIFILECHAR_VALUE_LEN );
         break;
 
     default:
@@ -441,6 +441,7 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
 			LOG("write data : %d\n", connHandle);
 			LOG_DUMP_BYTE(pValue, len);
             osal_memcpy(multiProfileChar1, pValue, len);
+			LC_App_Set_Param.app_connHandle = connHandle;
             notifyApp = MULTIPROFILE_CHAR1;
             break;
         }
@@ -456,11 +457,11 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
         {
             status = GATTServApp_ProcessCCCWriteReq( connHandle, pAttr, pValue, len,
                                                      offset, GATT_CLIENT_CFG_NOTIFY );
-            osal_memcpy(multiProfileChar2, pValue, len);
-            if ( status == SUCCESS )
-            {
-                notifyApp = MULTIPROFILE_CHAR2;
-            }
+            // osal_memcpy(multiProfileChar2, pValue, len);
+            // if ( status == SUCCESS )
+            // {
+            //     notifyApp = MULTIPROFILE_CHAR2;
+            // }
 
         }
         break;

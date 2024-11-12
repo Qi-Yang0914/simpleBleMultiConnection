@@ -36,8 +36,8 @@ extern void hal_rom_boot_init(void);
 */
 
 #define   BLE_MAX_ALLOW_CONNECTION              MAX_NUM_LL_CONN
-#define   BLE_MAX_ALLOW_PKT_PER_EVENT_TX        1
-#define   BLE_MAX_ALLOW_PKT_PER_EVENT_RX        1
+#define   BLE_MAX_ALLOW_PKT_PER_EVENT_TX        2
+#define   BLE_MAX_ALLOW_PKT_PER_EVENT_RX        2
 #define   BLE_PKT_VERSION                       BLE_PKT_VERSION_4_0 //BLE_PKT_VERSION_5_1 //BLE_PKT_VERSION_5_1     
 
 

@@ -66,6 +66,7 @@
 /*						User function prototypes					*/
 /*------------------------------------------------------------------*/
 void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal		(uint8 evt		);
+void	__ATTR_SECTION_SRAM__	__attribute__((used))	LC_RF_433M_Send			(uint8 evt);
 void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_USART_Handler_Evt	(uart_Evt_t* pev);
 void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_IR_Analysis_Data		(uint32	nTimeL	);
 void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler	(GPIO_Pin_e pin, IO_Wakeup_Pol_e type);
