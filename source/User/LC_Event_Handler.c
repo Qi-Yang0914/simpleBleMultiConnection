@@ -45,7 +45,88 @@ void	__ATTR_SECTION_SRAM__ __attribute__((used))		LC_RF_433M_Send(uint8 evt)
 {
 	if(evt == HAL_EVT_TIMER_5)
 	{
-		
+		if(LC_Dev_System_Param.dev_rf_send_busy == 1)
+		{
+			LC_Dev_System_Param.dev_rf_send_tick++;
+			if(LC_Dev_System_Param.dev_rf_send_index == 0)
+			{
+				if(LC_Dev_System_Param.dev_rf_send_tick == 1)
+				{
+					RF_SEND_HIGH();
+				}
+				else if(LC_Dev_System_Param.dev_rf_send_tick == 5)
+				{
+					RF_SEND_LOW();
+				}
+				else if(LC_Dev_System_Param.dev_rf_send_tick == 95)
+				{
+					RF_SEND_HIGH();
+					LC_Dev_System_Param.dev_rf_send_tick = 0;
+					LC_Dev_System_Param.dev_rf_send_index = 1;
+					LC_Dev_System_Param.dev_rf_send_tick = 0;
+				}
+			}
+			else if(LC_Dev_System_Param.dev_rf_send_index == 1)
+			{
+				if(LC_Dev_System_Param.dev_rf_cmd_bit_index < 24)
+				{
+					if(LC_Dev_System_Param.dev_rf_cmd & BIT(23 - LC_Dev_System_Param.dev_rf_cmd_bit_index))
+					{
+						if(LC_Dev_System_Param.dev_rf_send_tick == 1)
+						{
+							RF_SEND_HIGH();
+						}
+						else if(LC_Dev_System_Param.dev_rf_send_tick == 8)
+						{
+							RF_SEND_LOW();
+						}
+						else if(LC_Dev_System_Param.dev_rf_send_tick == 12)
+						{
+							RF_SEND_HIGH();
+							LC_Dev_System_Param.dev_rf_cmd_bit_index++;
+							LC_Dev_System_Param.dev_rf_send_tick = 0;
+						}
+					}
+					else
+					{
+						if(LC_Dev_System_Param.dev_rf_send_tick == 1)
+						{
+							RF_SEND_HIGH();
+						}
+						else if(LC_Dev_System_Param.dev_rf_send_tick == 4)
+						{
+							RF_SEND_LOW();
+						}
+						else if(LC_Dev_System_Param.dev_rf_send_tick == 12)
+						{
+							RF_SEND_HIGH();
+							LC_Dev_System_Param.dev_rf_cmd_bit_index++;
+							LC_Dev_System_Param.dev_rf_send_tick = 0;
+						}
+					}
+				}
+				else
+				{
+					LC_Dev_System_Param.dev_rf_send_index = 2;
+					LC_Dev_System_Param.dev_rf_send_tick = 0;
+					LC_Dev_System_Param.dev_rf_cmd_bit_index = 0;
+					RF_SEND_LOW();
+				}
+			}
+			else if(LC_Dev_System_Param.dev_rf_send_index == 2)
+			{
+				if(LC_Dev_System_Param.dev_rf_send_tick == 200)
+				{
+					LC_Dev_System_Param.dev_rf_send_index = 0;
+					LC_Dev_System_Param.dev_rf_send_tick = 0;
+					LC_Dev_System_Param.dev_rf_send_times++;
+					if(LC_Dev_System_Param.dev_rf_send_times > 49)
+					{
+						osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_STOP_SEND_EVT, 10);
+					}
+				}
+			}
+		}
 	}
 }
 /**

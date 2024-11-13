@@ -118,7 +118,7 @@ void LC_Timer_Start(time_evt_e evt_type)
 void LC_Timer_Stop(void)
 {
 	hal_timer_stop(AP_TIMER_ID_5);
-	// LOG("Stop timer\n");
+	LOG("Stop timer\n");
 }
 // /*!
 //  *	@fn			LC_Switch_Poweron
@@ -161,7 +161,6 @@ void LC_Timer_Stop(void)
 // 	}
 // }
 extern	void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin_e pin, IO_Wakeup_Pol_e type);
-extern	void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Gpio_IR_IntHandler	(GPIO_Pin_e pin, IO_Wakeup_Pol_e type);
 
 /**
  * @brief 
@@ -171,19 +170,32 @@ void BSP_Pin_Init(void)
 {
 	hal_pwrmgr_register(MOD_USR8, NULL, NULL);
 	hal_pwrmgr_lock(MOD_USR8);
-	// hal_gpio_pin_init(GPIO_RF_433M, IE);
-	// hal_gpio_pull_set(GPIO_RF_433M, STRONG_PULL_UP);
-	// hal_gpioin_register(GPIO_RF_433M, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
 
 	hal_gpio_pin_init(GPIO_KEY_PWR, IE);
 	hal_gpio_pull_set(GPIO_KEY_PWR, STRONG_PULL_UP);
 	hal_gpioin_register(GPIO_KEY_PWR, NULL, LC_Key_Pin_IntHandler);
-	uint8 fs_buffer[8] = {0, 0};
+	uint8 fs_buffer[16] = {0, 0};
 	osal_snv_read(SNV_FS_ID_PSK, 8, fs_buffer);
 	if(fs_buffer[0] == 0x99 && fs_buffer[1] == 0x98)
 	{
 		LC_Dev_System_Param.dev_psk_flag = 1;
 		osal_memcpy(LC_Dev_System_Param.dev_psk, fs_buffer + 2, 6);
+	}
+	WaitMs(10);
+	hal_watchdog_feed();
+	osal_snv_read(SNV_FS_433M_KEY, 12, fs_buffer);
+	if((fs_buffer[0] == 0x33) && (fs_buffer[1] == 0x44))
+	{
+		osal_memcpy(LC_Dev_System_Param.dev_rf_buffer, fs_buffer + 3, 9);
+		LC_Dev_System_Param.dev_rf_cnt = fs_buffer[2];
+		if(LC_Dev_System_Param.dev_rf_cnt < 3)
+		{
+			LC_Dev_System_Param.dev_rf_index = LC_Dev_System_Param.dev_rf_cnt;
+		}
+		else
+		{
+			LC_Dev_System_Param.dev_rf_index = 0;
+		}
 	}
 }
 

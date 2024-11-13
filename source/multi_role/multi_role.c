@@ -698,8 +698,16 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
 			}
 			else if((newValue[0] == 0x33) && (newValue[1] == 0x44))
 			{
-				// LC_Timer_Start();
-				// osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
+				RF_Action(RF_START_REC);
+			}
+			else if((newValue[0] == 0x18) && (newValue[1] == 0x19))
+			{
+				if(RF_Chcek_Cmd(newValue+2) != 0xff)
+				{
+					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
+					LC_Dev_System_Param.dev_rf_cmd = (uint32)((newValue[2]<<16) | (newValue[3] << 8) | (newValue[4] & 0xf0));
+					RF_Action(RF_START_SEND);
+				}
 			}
 			else if((newValue[0] == 0x35) && (newValue[1] == 0x36))
 			{

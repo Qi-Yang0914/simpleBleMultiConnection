@@ -76,6 +76,9 @@
 #define		RESET_BIT_X(a, b)				(a &= ~BIT(b))
 #define		GET_BIT_X(a, b)					(a & BIT(b))
 
+
+#define		RF_SEND_LOW()		hal_gpio_write(GPIO_RF_433M, 0)
+#define		RF_SEND_HIGH()		hal_gpio_write(GPIO_RF_433M, 1)
 /*------------------------------------------------------------------*/
 /*						UI Task Events definitions					*/
 /*------------------------------------------------------------------*/
@@ -127,6 +130,15 @@ typedef	enum
 	TIME_EVT_SEND = 2,
 }time_evt_e;
 
+typedef enum
+{
+	RF_IDEL = 0,
+	RF_START_REC,
+	RF_STOP_REC,
+	RF_START_SEND,
+	RF_STOP_SEND = 4,
+}rf_action_e;
+
 typedef	struct
 {
 	uint8	data_tail;
@@ -160,11 +172,16 @@ typedef struct
 	uint8	dev_ble_mac[6];
 	uint8	dev_psk[6];
 	uint32	dev_rf_cmd;
+	uint32	dev_rf_send_tick;
+	uint8	dev_rf_buffer[9];
+	uint8	dev_rf_cnt;
+	uint8	dev_rf_index;
 	uint8	dev_rf_cmd_bit_index;
 	uint8	dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
 	uint8	dev_rf_status;
 	uint8	dev_rf_send_times;
 	uint8	dev_rf_send_index;
+	uint8	dev_rf_send_busy;
 }lc_dev_sys_param;
 
 
