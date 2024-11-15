@@ -201,9 +201,9 @@ void RF_Action(rf_action_e task)
 	{
 		case RF_START_REC:
 		{
-			hal_gpio_pin_init(GPIO_RF_433M, IE);
-			hal_gpio_pull_set(GPIO_RF_433M, STRONG_PULL_UP);
-			hal_gpioin_register(GPIO_RF_433M, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
+			hal_gpio_pin_init(GPIO_RF_433M_RX, IE);
+			hal_gpio_pull_set(GPIO_RF_433M_RX, STRONG_PULL_UP);
+			hal_gpioin_register(GPIO_RF_433M_RX, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
 
 			LC_Timer_Start(TIME_EVT_LEARN);
 			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
@@ -215,9 +215,9 @@ void RF_Action(rf_action_e task)
 		case RF_STOP_REC:
 		{
 			osal_stop_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT);
-			hal_gpio_pull_set(GPIO_RF_433M, FLOATING);
-			hal_gpioin_register(GPIO_RF_433M, NULL, NULL);
-			hal_gpioin_disable(GPIO_RF_433M);
+			hal_gpio_pull_set(GPIO_RF_433M_RX, FLOATING);
+			hal_gpioin_register(GPIO_RF_433M_RX, NULL, NULL);
+			hal_gpioin_disable(GPIO_RF_433M_RX);
 			LC_Timer_Stop();
 			data_cnt = 0;
 			per_data = 0;
@@ -233,8 +233,8 @@ void RF_Action(rf_action_e task)
 				LC_Dev_System_Param.dev_rf_send_times = 0;
 				LC_Dev_System_Param.dev_rf_send_index = 0;
 				LC_Dev_System_Param.dev_rf_send_tick = 0;
-				hal_gpioin_disable(GPIO_RF_433M);
-				hal_gpio_pin_init(GPIO_RF_433M, OEN);
+				hal_gpioin_disable(GPIO_RF_433M_RX);
+				hal_gpio_pin_init(GPIO_RF_433M_TX, OEN);
 				LC_Timer_Start(TIME_EVT_SEND);
 			}
 		}
@@ -243,8 +243,8 @@ void RF_Action(rf_action_e task)
 		case RF_STOP_SEND:
 		{
 			LC_Dev_System_Param.dev_rf_send_busy = 0;
-			hal_gpio_pin_init(GPIO_RF_433M, IE);
-			hal_gpio_pull_set(GPIO_RF_433M, FLOATING);
+			hal_gpio_pin_init(GPIO_RF_433M_TX, IE);
+			hal_gpio_pull_set(GPIO_RF_433M_TX, FLOATING);
 			LC_Timer_Stop();
 		}
 		break;

@@ -209,7 +209,7 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
 void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Gpio_IR_IntHandler(GPIO_Pin_e pin, IO_Wakeup_Pol_e type)
 {
 	switch(pin){
-		case	GPIO_RF_433M:
+		case	GPIO_RF_433M_RX:
 			if(type == NEGEDGE)
 			{
 				LC_433m_Data.data_head++;

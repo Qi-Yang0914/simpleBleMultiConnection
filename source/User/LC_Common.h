@@ -50,7 +50,8 @@
 /*						Pins definitions							*/
 /*------------------------------------------------------------------*/
 //	RF 433M
-#define		GPIO_RF_433M	P7
+#define		GPIO_RF_433M_RX	P7
+#define		GPIO_RF_433M_TX	P7
 //	Key Pins
 #define		GPIO_KEY_PWR	P14
 //	Uart
@@ -77,8 +78,8 @@
 #define		GET_BIT_X(a, b)					(a & BIT(b))
 
 
-#define		RF_SEND_LOW()		hal_gpio_write(GPIO_RF_433M, 0)
-#define		RF_SEND_HIGH()		hal_gpio_write(GPIO_RF_433M, 1)
+#define		RF_SEND_LOW()		hal_gpio_write(GPIO_RF_433M_TX, 0)
+#define		RF_SEND_HIGH()		hal_gpio_write(GPIO_RF_433M_TX, 1)
 /*------------------------------------------------------------------*/
 /*						UI Task Events definitions					*/
 /*------------------------------------------------------------------*/
