@@ -84,6 +84,17 @@ uint8	halfbyte_into_str(uint8 byte)
 
 	return temp;
 }
+uint8 checksum(uint8 *data, uint16 len)
+{
+	uint16 sum = 0;
+
+	for(uint16 i = 0; i < len; i++)
+	{
+		sum += data[i];
+	}
+
+	return((uint8)sum);
+}
 /*!
  *	@fn			LC_Common_ProcessOSALMsg
  *	@brief		Process an incoming task message,nothing.

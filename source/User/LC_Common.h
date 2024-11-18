@@ -197,6 +197,7 @@ extern	lc_dev_sys_param	LC_Dev_System_Param;
 /*------------------------------------------------------------------*/
 uint32	clock_time_exceed_func			(uint32 ref,		uint32 span_ms	);
 uint8	halfbyte_into_str(uint8 byte);
+uint8 checksum(uint8 *data, uint16 len);
 void	LC_Common_ProcessOSALMsg	 	(osal_event_hdr_t *pMsg				);
 void	LC_Timer_Start					(time_evt_e evt_type);
 void	LC_Timer_Stop					(void);

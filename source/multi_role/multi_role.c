@@ -628,7 +628,7 @@ static void multiRoleAPP_AdvInit(void)
 		0xff,0xff,0xff,0xff,0xff,0xff,
 		0x66,
 		0xFF,0xFF,
-		0x01,0x00,0x02,
+		0x01,0x00,0x03,
 		0x0a,0x02,
 		0x00,
     };
@@ -666,55 +666,77 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
         MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR1, newValue );
 		LOG("get data len [%d] :", len);
 		LOG_DUMP_BYTE(newValue, PRIFILECHAR_VALUE_LEN);
-		if(len  == 1)
-		{
-			if((newValue[0] == 0x11) || (newValue[0] == 0x88))
-			{
-				LC_UART_TX_Send(newValue, 1);
-			}			
-		}
-		else
-		{
-			if((newValue[0] == 0x11) && (newValue[1] == 0x22))
-			{
-				if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+2, 6))
-				{
-					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, len, newValue);
-				}
-				else
-				{
-					newValue[0] = 0x55;
-					newValue[1] = 0x66;
-					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
-					GAPMultiRole_TerminateConnection(LC_App_Set_Param.app_connHandle);
-				}
-			}
-			else if((newValue[0] == 0x99) && (newValue[1] == 0x98))
-			{
-				LC_Dev_System_Param.dev_psk_flag = 2;
-				osal_memcpy(LC_Dev_System_Param.dev_psk, newValue + 2, 6);
-				MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
-				osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SNV_FS_DEAL_EVT, 500);
-			}
-			else if((newValue[0] == 0x33) && (newValue[1] == 0x44))
-			{
-				RF_Action(RF_START_REC);
-			}
-			else if((newValue[0] == 0x18) && (newValue[1] == 0x19))
-			{
-				if(RF_Chcek_Cmd(newValue+2) != 0xff)
-				{
-					MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
-					LC_Dev_System_Param.dev_rf_cmd = (uint32)((newValue[2]<<16) | (newValue[3] << 8) | (newValue[4] & 0xf0));
-					RF_Action(RF_START_SEND);
-				}
-			}
-			else if((newValue[0] == 0x35) && (newValue[1] == 0x36))
-			{
-				MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 2, newValue);
-				LC_UART_TX_Send(newValue + 2, len-2);
-			}
-		}
+        if((newValue[0] == 0x54) && (newValue[1] == 0x42))
+        {
+            if(newValue[3] == 1)
+            {
+                if((newValue[4] == 0x11) || (newValue[4] == 0x88))
+                {
+                    LC_UART_TX_Send(newValue + 4, 1);
+                }			
+            }
+            else
+            {
+                if((newValue[4] == 0x11) && (newValue[5] == 0x22))
+                {
+                    if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+6, 6))
+                    {
+                        newValue[2] = 0x02;
+                        newValue[len - 1] += 1;
+                        MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, len, newValue);
+                    }
+                    else
+                    {
+                        newValue[2] = 2;
+                        newValue[3] = 2;
+                        newValue[4] = 0x55;
+                        newValue[5] = 0x66;
+                        newValue[6] = checksum(newValue + 2, 4);
+                        MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
+                        GAPMultiRole_TerminateConnection(LC_App_Set_Param.app_connHandle);
+                    }
+                }
+                else if((newValue[4] == 0x99) && (newValue[5] == 0x98))
+                {
+                    newValue[2] = 2;
+                    newValue[3] = 2;
+                    newValue[4] = 0x99;
+                    newValue[5] = 0x98;
+                    newValue[6] = checksum(newValue + 2, 4);
+                    LC_Dev_System_Param.dev_psk_flag = 2;
+                    osal_memcpy(LC_Dev_System_Param.dev_psk, newValue + 6, 6);
+                    MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
+                    osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SNV_FS_DEAL_EVT, 500);
+                }
+                else if((newValue[4] == 0x33) && (newValue[5] == 0x44))
+                {
+                    RF_Action(RF_START_REC);
+                }
+                else if((newValue[4] == 0x18) && (newValue[5] == 0x19))
+                {
+                    if(RF_Chcek_Cmd(newValue+6) != 0xff)
+                    {
+                        newValue[2] = 2;
+                        newValue[3] = 2;
+                        newValue[4] = 0x18;
+                        newValue[5] = 0x19;
+                        newValue[6] = checksum(newValue + 2, 4);
+                        MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
+                        LC_Dev_System_Param.dev_rf_cmd = (uint32)((newValue[6]<<16) | (newValue[7] << 8) | (newValue[8] & 0xf0));
+                        RF_Action(RF_START_SEND);
+                    }
+                }
+                else if((newValue[4] == 0x35) && (newValue[5] == 0x36))
+                {
+                    LC_UART_TX_Send(newValue + 6, 2);
+                    newValue[2] = 2;
+                    newValue[4] = 0x35;
+                    newValue[5] = 0x36;
+                    newValue[6] = checksum(newValue + 2, 4);
+                    MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
+                }
+            }
+        }
         break;
    // case MULTIPROFILE_CHAR2:
     //     MultiProfile_GetParameter( connHandle,MULTIPROFILE_CHAR2, newValue );
