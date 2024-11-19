@@ -293,9 +293,10 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 	{
 		if(LC_Dev_System_Param.dev_psk_flag == 2)
 		{
-			uint8 fs_buffer[8] = {0x99, 0x98,};
-			osal_memcpy(fs_buffer + 2, LC_Dev_System_Param.dev_psk, 6);
-			osal_snv_write(SNV_FS_ID_PSK, 8, fs_buffer);
+			uint8 fs_buffer[10] = {0x99, 0x98,};
+			fs_buffer[2] = LC_Dev_System_Param.dev_psk_len;
+			osal_memcpy(fs_buffer + 3, LC_Dev_System_Param.dev_psk, LC_Dev_System_Param.dev_psk_len);
+			osal_snv_write(SNV_FS_ID_PSK, 10, fs_buffer);
 			LC_Dev_System_Param.dev_psk_flag = 1;
 			GAPMultiRole_TerminateConnection(0xffff);
 		}

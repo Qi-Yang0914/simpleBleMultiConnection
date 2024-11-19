@@ -33,8 +33,10 @@ lc_433m_rec_t	LC_433m_Data	=
 lc_app_set_t		LC_App_Set_Param;
 lc_dev_sys_param	LC_Dev_System_Param	=	
 {
-	.dev_psk_flag = TRUE,
+	.dev_psk_flag = 1,
 	.dev_psk = {'1', '2', '3', '4', '5', '6'},
+	.dev_psk_len = 6,
+	.dev_psk_checked = FALSE,
 };
 /*------------------------------------------------------------------*/
 /* 					 	local functions			 					*/
@@ -186,11 +188,12 @@ void BSP_Pin_Init(void)
 	hal_gpio_pull_set(GPIO_KEY_PWR, STRONG_PULL_UP);
 	hal_gpioin_register(GPIO_KEY_PWR, NULL, LC_Key_Pin_IntHandler);
 	uint8 fs_buffer[16] = {0, 0};
-	osal_snv_read(SNV_FS_ID_PSK, 8, fs_buffer);
+	osal_snv_read(SNV_FS_ID_PSK, 10, fs_buffer);
 	if(fs_buffer[0] == 0x99 && fs_buffer[1] == 0x98)
 	{
 		LC_Dev_System_Param.dev_psk_flag = 1;
-		osal_memcpy(LC_Dev_System_Param.dev_psk, fs_buffer + 2, 6);
+		LC_Dev_System_Param.dev_psk_len = fs_buffer[2];
+		osal_memcpy(LC_Dev_System_Param.dev_psk, fs_buffer + 3, LC_Dev_System_Param.dev_psk_len);
 	}
 	WaitMs(10);
 	hal_watchdog_feed();

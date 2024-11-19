@@ -179,6 +179,8 @@ typedef struct
 	uint8	dev_rf_index;
 	uint8	dev_rf_cmd_bit_index;
 	uint8	dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
+	uint8	dev_psk_len;
+	uint8	dev_psk_checked;
 	uint8	dev_rf_status;
 	uint8	dev_rf_send_times;
 	uint8	dev_rf_send_index;
