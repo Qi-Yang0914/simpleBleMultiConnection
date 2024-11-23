@@ -629,7 +629,7 @@ static void multiRoleAPP_AdvInit(void)
 		0xff,0xff,0xff,0xff,0xff,0xff,
 		0x66,
 		0xFF,0xFF,
-		0x01,0x00,0x04,
+		0x01,0x00,0x05,
 		0x0a,0x02,
 		0x00,
     };
@@ -749,13 +749,15 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
 							newValue[4] = 0x18;
 							newValue[5] = 0x19;
 							newValue[6] = checksum(newValue + 2, 4);
+							LC_UART_TX_Send(newValue + 4, 2);
 							MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
 							RF_Action(RF_START_SEND);
 						}
 					}
 					else if((newValue[4] == 0x35) && (newValue[5] == 0x36))
 					{
-						LC_UART_TX_Send(newValue + 6, 2);
+						newValue[6] -= 0x10;
+						LC_UART_TX_Send(newValue + 6, 1);
 						newValue[2] = 2;
 						newValue[4] = 0x35;
 						newValue[5] = 0x36;

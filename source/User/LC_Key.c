@@ -189,7 +189,7 @@ uint16 LC_Key_ProcessEvent(uint8 task_id, uint16 events)
 			if(LC_Key_Param.key_repeated_num == 5)
 			{
 				uint8 psk_buffer[10] = {0x99, 0x98, 0x06, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36};
-				osal_memcpy(LC_Dev_System_Param.dev_psk, psk_buffer + 2, 6);
+				osal_memcpy(LC_Dev_System_Param.dev_psk, psk_buffer + 3, 6);
 				LC_Dev_System_Param.dev_psk_len = 6;
 				osal_snv_write(SNV_FS_ID_PSK, 10, psk_buffer);
 			}

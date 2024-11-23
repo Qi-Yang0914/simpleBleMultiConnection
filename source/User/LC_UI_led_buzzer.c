@@ -55,10 +55,17 @@ static void RF_Save_Cmd(void)
 	osal_memcpy(fs_rf_cmd + 3, LC_Dev_System_Param.dev_rf_buffer, 9);
 	osal_snv_write(SNV_FS_433M_KEY, 12, fs_rf_cmd);
 
-	fs_rf_cmd[2] = (LC_433m_Data.key_data >> 16)&0xff;
-	fs_rf_cmd[3] = (LC_433m_Data.key_data >> 8)&0xff;
-	fs_rf_cmd[4] = (LC_433m_Data.key_data)&0xf0;
-	MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, 5, fs_rf_cmd);
+	fs_rf_cmd[0] = 0x54;
+	fs_rf_cmd[1] = 0x42;
+	fs_rf_cmd[2] = 0x02;
+	fs_rf_cmd[3] = 5;
+	fs_rf_cmd[4] = 0x33;
+	fs_rf_cmd[5] = 0x44;
+	fs_rf_cmd[6] = (LC_433m_Data.key_data >> 16)&0xff;
+	fs_rf_cmd[7] = (LC_433m_Data.key_data >> 8)&0xff;
+	fs_rf_cmd[8] = (LC_433m_Data.key_data)&0xf0;
+	fs_rf_cmd[9] = checksum(fs_rf_cmd+2, 7);
+	MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, 10, fs_rf_cmd);
 }
 
 static	void	LC_RF433M_Deal_Key(void)
