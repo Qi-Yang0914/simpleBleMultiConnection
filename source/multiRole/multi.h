@@ -34,8 +34,8 @@ extern "C"
 #define   MAX_CONNECTION_NUM          8
 #define   MAX_CONNECTION_SLAVE_NUM    0
 #else
-#define   MAX_CONNECTION_NUM          4
-#define   MAX_CONNECTION_SLAVE_NUM    4
+#define   MAX_CONNECTION_NUM          2
+#define   MAX_CONNECTION_SLAVE_NUM    1
 #endif
 
 #define   MAX_CONNECTION_MASTER_NUM   ( (MAX_CONNECTION_NUM >= MAX_CONNECTION_SLAVE_NUM)?\

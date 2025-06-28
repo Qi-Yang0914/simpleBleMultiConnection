@@ -199,6 +199,15 @@ extern	lc_dev_sys_param	LC_Dev_System_Param;
 /*------------------------------------------------------------------*/
 uint32	clock_time_exceed_func			(uint32 ref,		uint32 span_ms	);
 uint8	halfbyte_into_str(uint8 byte);
+/*!
+ *	@fn			Byte_to_TwoAcs
+ *	@brief		transfer Nibble of one Byte to two Bytes
+ *	@param[in]	des:	output string
+ *	@param[in]	scr:	need to be transfered data
+ *	@param[in]	des_len:	length of source data
+ *	@return		NONE
+ */
+void Byte_to_TwoAcs(uint8 *des, uint8 *scr, uint8 des_len);
 uint8 checksum(uint8 *data, uint16 len);
 void	LC_Common_ProcessOSALMsg	 	(osal_event_hdr_t *pMsg				);
 void	LC_Timer_Start					(time_evt_e evt_type);

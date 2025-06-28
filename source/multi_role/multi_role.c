@@ -75,7 +75,7 @@
 // Connection Pause Peripheral time value (in 1000ms)
 #define DEFAULT_CONN_PAUSE_PERIPHERAL           1
 
-#define DEFAULT_ADV_INTV                        160
+#define DEFAULT_ADV_INTV                        320
 
 #define DEFAULT_SCAN_RSP_RSSI_MIN               -70
 
@@ -84,10 +84,10 @@
 #define DEFAULT_SCAN_DURATION                   50
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_UPDATE_SLAVE_LATENCY          0
+#define DEFAULT_UPDATE_SLAVE_LATENCY          4
 
 // Supervision timeout value (units of 10ms) if automatic parameter update request is enabled
-#define DEFAULT_UPDATE_CONN_TIMEOUT           200
+#define DEFAULT_UPDATE_CONN_TIMEOUT           500
 
 // Discovey mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -251,11 +251,11 @@ void multiRoleApp_Init( uint8 task_id )
         // Initialize GATT attributes
         GGS_AddService( GATT_ALL_SERVICES );         // GAP
         GATTServApp_AddService( GATT_ALL_SERVICES ); // GATT attributes
+        MultiProfile_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
+        MultiProfile_RegisterAppCBs(&multiRole_ProfileCBs);
         #ifdef PHY_OTA_ENABLE
         ota_app_AddService();
         #endif
-        MultiProfile_AddService( GATT_ALL_SERVICES );  // Simple GATT Profile
-        MultiProfile_RegisterAppCBs(&multiRole_ProfileCBs);
     }
     #endif
     #if ( MAX_CONNECTION_MASTER_NUM > 0 )
@@ -348,7 +348,7 @@ uint16 multiRoleApp_ProcessEvent( uint8 task_id, uint16 events )
 
             if( SCH_SUCCESS == muliSchedule_config( MULTI_SCH_ADV_MODE, add_adv_node ) )
             {
-                LOG("Multi Role advertising scheduler success :%x\n",add_adv_node);
+                LOG("Multi Role advertising scheduler success :0x%x\n",add_adv_node);
             }
         }
         #endif
@@ -558,13 +558,19 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
     {
         if( multiGetSlaveConnList() != NULL )
         {
+			multiClearAllSlaveList();
+			multiDelCurrentConnNode();
             ///bugfix: multi add init node 2022 08 05
             uint8_t scan_init_node_num = 0, curr_master_conn_num = 0;
             scan_init_node_num =  multiRole_findInitScanNode();
             curr_master_conn_num = multiLinkGetMasterConnNum();
-
+			LOG("dis clear scan_init_node_num %d curr_master_conn_num %d\n",scan_init_node_num, curr_master_conn_num);
+ 
             if(scan_init_node_num < (MAX_CONNECTION_MASTER_NUM - curr_master_conn_num))
-                muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x01 );
+			{
+                muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x00 );
+				muliSchedule_config( MULTI_SCH_SCAN_MODE, 0x01);
+			}
             else
             {
                 ///2023 04 25 add: restart multi schedule state machine
@@ -613,13 +619,12 @@ static void multiRoleAPP_AdvInit(void)
         0x02,
         GAP_ADTYPE_FLAGS,
         GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-		0x03,
-		GAP_ADTYPE_16BIT_COMPLETE,
-		0x12, 0x18,
-        0x10,                             // length of this data
-        GAP_ADTYPE_LOCAL_NAME_COMPLETE, // AD Type = Complete local name
-        'w','e','L','o','g','r','a','r', '-', 'X','X','X','X','X','X',
+		0x17,
+		GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+		'U', 'I', 'N', 'L', 'A','N', '-', 'K', 'Y','-',
+		'0', '0', '0', '0', '0', '0', '0', '0','0', '0', '0', '0',
     };
+	Byte_to_TwoAcs(gapMultiRole_AdvertData+15, LC_Dev_System_Param.dev_ble_mac, 12);
     uint8  gapMultiRole_ScanRspData[] =
     {
 		// manufacture
@@ -634,17 +639,6 @@ static void multiRoleAPP_AdvInit(void)
 		0x00,
     };
 	osal_memcpy(gapMultiRole_ScanRspData + 4, LC_Dev_System_Param.dev_ble_mac, 6);
-	for(uint8 i = 0; i < 6; i++)
-	{
-		if(!(i % 2))
-		{
-			gapMultiRole_AdvertData[18 + i] = halfbyte_into_str((LC_Dev_System_Param.dev_ble_mac[i/2 + 3]) >> 4);
-		}
-		else
-		{
-			gapMultiRole_AdvertData[18 + i] = halfbyte_into_str((LC_Dev_System_Param.dev_ble_mac[i/2 + 3]) & 0x0f);
-		}
-	}
 
     for( uint8 i=0; i<MAX_CONNECTION_SLAVE_NUM; i++)
 	{
@@ -654,7 +648,7 @@ static void multiRoleAPP_AdvInit(void)
 
     // GAP GATT Attributes -- device name & appearance ...
     uint8 simpleBLEDeviceName[GAP_DEVICE_NAME_LEN] = "xxxxxx";
-	osal_memcpy(simpleBLEDeviceName, gapMultiRole_AdvertData + 9, 15);
+	osal_memcpy(simpleBLEDeviceName, gapMultiRole_AdvertData + 5, 10);
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, (uint8*) simpleBLEDeviceName );
 }
 void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
@@ -669,103 +663,6 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
 		LOG_DUMP_BYTE(newValue, len);
         if((newValue[0] == 0x54) && (newValue[1] == 0x42))
         {
-			if(LC_Dev_System_Param.dev_psk_checked == FALSE)
-			{
-				if((newValue[4] == 0x11) && (newValue[5] == 0x22))
-				{
-					if((LC_Dev_System_Param.dev_psk_len == (newValue[3] - 2)) && (osal_memcmp(LC_Dev_System_Param.dev_psk, newValue + 6, (newValue[3] - 2))))
-					{
-						newValue[2] = 0x02;
-						newValue[len - 1] += 1;
-						MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, len, newValue);
-						LC_Dev_System_Param.dev_psk_checked = TRUE;
-					}
-					else
-					{
-						newValue[2] = 2;
-						newValue[3] = 2;
-						newValue[4] = 0x55;
-						newValue[5] = 0x66;
-						newValue[6] = checksum(newValue + 2, 4);
-						MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
-						GAPMultiRole_TerminateConnection(LC_App_Set_Param.app_connHandle);
-					}
-				}
-			}
-			else
-			{
-				if(newValue[3] == 1)
-				{
-					if((newValue[4] == 0x11) || (newValue[4] == 0x88))
-					{
-						LC_UART_TX_Send(newValue + 4, 1);
-					}
-				}
-				else
-				{
-					if((newValue[4] == 0x11) && (newValue[5] == 0x22))
-					{
-						if(osal_memcmp(LC_Dev_System_Param.dev_psk, newValue+6, 6))
-						{
-							newValue[2] = 0x02;
-							newValue[len - 1] += 1;
-							MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, len, newValue);
-						}
-						else
-						{
-							newValue[2] = 2;
-							newValue[3] = 2;
-							newValue[4] = 0x55;
-							newValue[5] = 0x66;
-							newValue[6] = checksum(newValue + 2, 4);
-							MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
-							GAPMultiRole_TerminateConnection(LC_App_Set_Param.app_connHandle);
-						}
-					}
-					else if((newValue[4] == 0x99) && (newValue[5] == 0x98))
-					{
-						LC_Dev_System_Param.dev_psk_len = newValue[3] - 2;
-						LC_Dev_System_Param.dev_psk_flag = 2;
-						osal_memcpy(LC_Dev_System_Param.dev_psk, newValue + 6, LC_Dev_System_Param.dev_psk_len);
-						newValue[2] = 2;
-						newValue[3] = 2;
-						newValue[4] = 0x99;
-						newValue[5] = 0x98;
-						newValue[6] = checksum(newValue + 2, 4);
-						MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
-						osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SNV_FS_DEAL_EVT, 500);
-					}
-					else if((newValue[4] == 0x33) && (newValue[5] == 0x44))
-					{
-						RF_Action(RF_START_REC);
-					}
-					else if((newValue[4] == 0x18) && (newValue[5] == 0x19))
-					{
-						if(RF_Chcek_Cmd(newValue+6) != 0xff)
-						{
-							LC_Dev_System_Param.dev_rf_cmd = (uint32)((newValue[6]<<16) | (newValue[7] << 8) | (newValue[8] & 0xf0));
-							newValue[2] = 2;
-							newValue[3] = 2;
-							newValue[4] = 0x18;
-							newValue[5] = 0x19;
-							newValue[6] = checksum(newValue + 2, 4);
-							LC_UART_TX_Send(newValue + 4, 2);
-							MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
-							RF_Action(RF_START_SEND);
-						}
-					}
-					else if((newValue[4] == 0x35) && (newValue[5] == 0x36))
-					{
-						newValue[6] -= 0x10;
-						LC_UART_TX_Send(newValue + 6, 1);
-						newValue[2] = 2;
-						newValue[4] = 0x35;
-						newValue[5] = 0x36;
-						newValue[6] = checksum(newValue + 2, 4);
-						MultiProfile_Notify(connHandle, MULTIPROFILE_CHAR2, 7, newValue);
-					}
-				}
-			}
         }
         break;
    // case MULTIPROFILE_CHAR2:
@@ -777,38 +674,38 @@ void multiRoleProfileChangeCB( uint16 connHandle,uint16 paramID, uint16 len )
     }
 }
 
-// static void multiRole_setup_adv_scanRspData(uint8 idx)
-// {
-//     // Multi-role Advertising Data & Scan Response Data
-//     uint8 gapMultiRole_AdvertData[] =
-//     {
-//         // flags
-//         0x02,
-//         GAP_ADTYPE_FLAGS,
-//         GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-// 		0x03,
-// 		GAP_ADTYPE_16BIT_COMPLETE,
-// 		0x12, 0x18,
-//         0x10,                             // length of this data
-//         GAP_ADTYPE_LOCAL_NAME_COMPLETE, // AD Type = Complete local name
-//         'w','e','L','o','g','r','a','r', '-', 'X','X','X','X','X','X',
-//     };
-//     uint8  gapMultiRole_ScanRspData[] =
-//     {
-// 		// manufacture
-// 		0x12,
-// 		GAP_ADTYPE_MANUFACTURER_SPECIFIC,
-// 		0xFF,0xFF,
-// 		0xff,0xff,0xff,0xff,0xff,0xff,
-// 		0x66,
-// 		0xFF,0xFF,
-// 		0x01,0x00,0x01,
-// 		0x0a,0x02,
-// 		0x00,
-//     };
-//     multiSchedule_advParam_init(idx,GAPMULTIROLE_ADVERT_DATA,sizeof( gapMultiRole_AdvertData ), gapMultiRole_AdvertData);
-//     multiSchedule_advParam_init(idx,GAPMULTIROLE_SCAN_RSP_DATA,sizeof( gapMultiRole_ScanRspData ), gapMultiRole_ScanRspData);
-// }
+static void multiRole_setup_adv_scanRspData(uint8 idx)
+{
+    // Multi-role Advertising Data & Scan Response Data
+    uint8 gapMultiRole_AdvertData[] =
+    {
+        // flags
+        0x02,
+        GAP_ADTYPE_FLAGS,
+        GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+		0x17,
+		GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+		'U', 'I', 'N', 'L', 'A','N', '-', 'K', 'Y','-',
+		'0', '0', '0', '0', '0', '0', '0', '0','0', '0', '0', '0',
+    };
+	Byte_to_TwoAcs(gapMultiRole_AdvertData+15, LC_Dev_System_Param.dev_ble_mac, 12);
+    uint8  gapMultiRole_ScanRspData[] =
+    {
+		// manufacture
+		0x12,
+		GAP_ADTYPE_MANUFACTURER_SPECIFIC,
+		0xFF,0xFF,
+		0xff,0xff,0xff,0xff,0xff,0xff,
+		0x66,
+		0x00,0xEE,
+		0x01,0x00,0x01,
+		0x01,0x00,
+		0x00,
+    };
+	osal_memcpy(gapMultiRole_ScanRspData + 4, LC_Dev_System_Param.dev_ble_mac, 6);
+    multiSchedule_advParam_init(idx,GAPMULTIROLE_ADVERT_DATA,sizeof( gapMultiRole_AdvertData ), gapMultiRole_AdvertData);
+    multiSchedule_advParam_init(idx,GAPMULTIROLE_SCAN_RSP_DATA,sizeof( gapMultiRole_ScanRspData ), gapMultiRole_ScanRspData);
+}
 
 #endif
 
@@ -839,16 +736,6 @@ static void multiRoleAPP_ScIn_Init(void)
     uint16 actionAfterLink = DEFAULT_ACTION_AFTER_LINK;
     GAPMultiRole_SetParameter( GAPMULTIROLE_ACTION_AFTER_LINK, sizeof( uint16 ), &actionAfterLink );
     GAP_SetParamValue( TGAP_SCAN_RSP_RSSI_MIN, ((uint16)DEFAULT_SCAN_RSP_RSSI_MIN) );
-    // prepare conn device MAC Addr
-    // attention : addr LSB First
-    uint8 addrType = ADDRTYPE_PUBLIC;
-    uint8 addr[B_ADDR_LEN]= {0x00,0x45,0x56,0x89,0x66,0x66};
-
-    for(uint8 i = 0; i < MAX_CONNECTION_MASTER_NUM ; i++)
-    {
-        addr[0] = 0x66 + i;
-        multiConfigSlaveList(addrType,addr);
-    }
 
     LOG("multi-role as master add slave MAC address\n");
 }
@@ -948,6 +835,16 @@ static void multiRoleEachScanCB( gapDeviceInfoEvent_t* pPkt )
     // notes : Application can get more info form pointer pPkt
     // eg:
     // addrType , adv event type , rssi , advData ...
+
+	// gapDeviceInfoEvent_t *scan_dev = pPkt;
+	// if(scan_dev->rssi > -50)
+	// {
+	// 	LOG("addrType %d rssi %d advlen %d MAC :", scan_dev->addrType, scan_dev->rssi, scan_dev->dataLen);
+	// 	LOG_DUMP_BYTE(scan_dev->addr, 6);
+	// 	LOG("\n adv data : \n");
+	// 	LOG_DUMP_BYTE(scan_dev->pEvtData, scan_dev->dataLen);
+	// }
+
 }
 
 static void multiRoleScanDoneCB( GAPMultiRolScanner_t* node )
@@ -956,30 +853,48 @@ static void multiRoleScanDoneCB( GAPMultiRolScanner_t* node )
 
     while( node )
     {
+		uint8 advertData[15] =
+		{
+			0x02,
+			GAP_ADTYPE_FLAGS,
+			GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+			// // appearance
+			// 0x03,	// length of this data
+			// GAP_ADTYPE_APPEARANCE,
+			// LO_UINT16(GAP_APPEARE_HID_GAMEPAD),
+			// HI_UINT16(GAP_APPEARE_HID_GAMEPAD),
+			0x17,
+			GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+			'U', 'I', 'N', 'L', 'A','N', '-', 'K', 'Y','-',
+		};
+		if(osal_memcmp(advertData, node->advData, 15))
+		{
+			multiConfigSlaveList(node->addrtype, node->addr);
+			LOG("scanf wanted dev\n");
+		}
         if( ( multiDevInConfSlaveList( node->addr ) ) && ( multi_devInLinkList( node->addr ) == FALSE) )
         {
             multiAddSlaveConnList( node->addrtype,node->addr );
         }
+    //    LOG("node %p\n",node);
+    //    LOG( bdAddr2Str( node->addr ) );
+    //    LOG("--addrtype %d\n",node->addrtype);
 
-//        LOG("node %p\n",node);
-//        LOG( bdAddr2Str( node->addr ) );
-//        LOG("--addrtype %d\n",node->addrtype);
+    //     if( node->advDatalen > 0)
+    //     {
+    //        LOG("advDatalen %d\n",node->advDatalen);
+    //        for( uint8 i=0; i<node->advDatalen; i++)
+    //            LOG("0x%02X,",node->advData[i]);
+    //        LOG("\n");
+    //     }
 
-        if( node->advDatalen > 0)
-        {
-//            LOG("advDatalen %d\n",node->advDatalen);
-//            for( uint8 i=0; i<node->advDatalen; i++)
-//                LOG("0x%02X,",node->advData[i]);
-//            LOG("\n");
-        }
-
-        if( node->scanRsplen > 0 )
-        {
-//            LOG("scanRsplen %d\n",node->scanRsplen);
-//            for( uint8 i=0; i<node->scanRsplen; i++)
-//                LOG("0x%02X,",node->rspData[i]);
-//            LOG("\n");
-        }
+    //     if( node->scanRsplen > 0 )
+    //     {
+    //        LOG("scanRsplen %d\n",node->scanRsplen);
+    //        for( uint8 i=0; i<node->scanRsplen; i++)
+    //            LOG("0x%02X,",node->rspData[i]);
+    //        LOG("\n");
+    //     }
 
 //        LOG("\n");
         node = node->next;
@@ -991,7 +906,7 @@ static void multiRoleScanDoneCB( GAPMultiRolScanner_t* node )
         uint8_t scan_init_node_num = 0, curr_master_conn_num = 0;
         scan_init_node_num =  multiRole_findInitScanNode();
         curr_master_conn_num = multiLinkGetMasterConnNum();
-
+		LOG("scan_init_node_num %d curr_master_conn_num %d\n",scan_init_node_num, curr_master_conn_num);
         if(scan_init_node_num < (MAX_CONNECTION_MASTER_NUM - curr_master_conn_num))
             muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x01 );
     }
@@ -1000,6 +915,8 @@ static void multiRoleScanDoneCB( GAPMultiRolScanner_t* node )
         //2022 02 14 Increased probability of scanning adv devices
         uint8  rand_char;
         TRNG_Rand(&rand_char,1);
+		LOG("RAND INT %d\n", rand_char);
+		rand_char = rand_char % DEFAULT_SCAN_DURATION;
         GAP_SetParamValue( TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION + (rand_char/*&0x0F*/) );
         GAP_SetParamValue( TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION + (rand_char/*&0x0F*/) );
         muliSchedule_config( MULTI_SCH_SCAN_MODE, 0x01 );

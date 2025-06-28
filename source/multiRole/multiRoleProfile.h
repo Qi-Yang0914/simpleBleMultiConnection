@@ -35,8 +35,8 @@ extern "C"
 /*********************************************************************
     MACROS
 */
-#define MULTIPROFILE_CHAR1             0x02
-#define MULTIPROFILE_CHAR2             0x03
+#define MULTIPROFILE_CHAR1             0x01
+#define MULTIPROFILE_CHAR2             0x02
 
 
 #define PRIFILECHAR_VALUE_LEN		(20)

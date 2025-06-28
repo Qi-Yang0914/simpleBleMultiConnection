@@ -86,6 +86,26 @@ uint8	halfbyte_into_str(uint8 byte)
 
 	return temp;
 }
+/*!
+ *	@fn			Byte_to_TwoAcs
+ *	@brief		transfer Nibble of one Byte to two Bytes
+ *	@param[in]	des:	output string
+ *	@param[in]	scr:	need to be transfered data
+ *	@param[in]	des_len:	length of output data
+ *	@return		NONE
+ */
+void Byte_to_TwoAcs(uint8 *des, uint8 *scr, uint8 des_len)
+{
+	uint8 i = 0;
+	uint8 cur_byte = 0;
+	uint8 half_byte = 0;
+	for(i =0; i < des_len; i++)
+	{
+		cur_byte = *(scr + i/2);
+		half_byte = (i%2)? (cur_byte & 0x0f):((cur_byte >> 4) & 0x0f);
+		*(des + i) = (half_byte < 0x0A)?(half_byte + '0') : (half_byte - 0x0a + 'A');
+	}
+}
 uint8 checksum(uint8 *data, uint16 len)
 {
 	uint16 sum = 0;
