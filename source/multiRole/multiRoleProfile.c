@@ -438,11 +438,14 @@ static bStatus_t multiProfile_WriteAttrCB( uint16 connHandle, gattAttribute_t* p
         switch ( pAttr->type.uuid[ ATT_UUID_SIZE - 4 ] )
         {
         case MULTIPROFILE_CHAR1:
-			LOG("write data : %d\n", connHandle);
-			LOG_DUMP_BYTE(pValue, len);
-            osal_memcpy(multiProfileChar1, pValue, len);
-			LC_App_Set_Param.app_connHandle = connHandle;
-            notifyApp = MULTIPROFILE_CHAR1;
+			// LOG("write data : %d\n", connHandle);
+			// LOG_DUMP_BYTE(pValue, len);
+            // osal_memcpy(multiProfileChar1, pValue, len);
+            // notifyApp = MULTIPROFILE_CHAR1;
+			LC_Dev_System_Param.Role_Slave.app_write_connHandle = connHandle;
+			osal_memcpy(LC_Dev_System_Param.Role_Slave.app_write_data, pValue, len);
+			LC_Dev_System_Param.Role_Slave.app_write_len = len;
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, APP_DATA_EVT, 10);
             break;
         }
     }

@@ -194,7 +194,6 @@ uint16	LC_Uart_ProcessEvent(uint8 task_id, uint16 events)
             UartDataLen = ((pctx->rx_size - pctx->rx_offset));
             LOG("uart data:\n");
             LOG_DUMP_BYTE(pctx->rx_buf + pctx->rx_offset, UartDataLen);
-			MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, UartDataLen, pctx->rx_buf + pctx->rx_offset);
             // LOG("Success\n");
             pctx->rx_state = BUP_RX_ST_IDLE;
             pctx->rx_offset = 0;

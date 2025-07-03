@@ -14,251 +14,55 @@
 #include "LC_Event_Handler.h"
 #include "LC_Uart.h"
 #include "multiRoleProfile.h"
+#include "LC_AES128_ECB_CBC.h"
+#include "multi_role.h"
 /*------------------------------------------------------------------*/
 /* 					 	local variables			 					*/
 /*------------------------------------------------------------------*/
-static	uint8	LC_RF433_Key_Press_Flag	=	0;
-static uint32 per_data;
-static uint8 data_cnt;
+static uint8 i2c_add;
+static uint8 i2c_write_cnt;
 /*------------------------------------------------------------------*/
 /* 					 	public variables		 					*/
 /*------------------------------------------------------------------*/
 uint8	LC_Ui_Led_Buzzer_TaskID;
-volatile uint32 LC_IR_Analysis_100ns_Cnt = 0;
-volatile uint32 LC_IR_Analysis_KeyValue = 0;
 
 /*------------------------------------------------------------------*/
 /* 					 	local functions			 					*/
 /*------------------------------------------------------------------*/
-static void RF_Save_Cmd(void)
+static void Write_24C02_Serial(uint8 address, uint8 cnt)
 {
-	uint8 fs_rf_cmd[16] = {0x33, 0x44};
-
-	LC_Dev_System_Param.dev_rf_buffer[0 + LC_Dev_System_Param.dev_rf_index*3] = (LC_433m_Data.key_data >> 16)&0xff;
-	LC_Dev_System_Param.dev_rf_buffer[1 + LC_Dev_System_Param.dev_rf_index*3] = (LC_433m_Data.key_data >> 8)&0xff;
-	LC_Dev_System_Param.dev_rf_buffer[2 + LC_Dev_System_Param.dev_rf_index*3] = (LC_433m_Data.key_data)&0xf0;
-	LC_Dev_System_Param.dev_rf_index++;
-	if(LC_Dev_System_Param.dev_rf_index > 2)
-	{
-		LC_Dev_System_Param.dev_rf_index = 0;
-	}
-	if(LC_Dev_System_Param.dev_rf_cnt < 3)
-	{
-		LC_Dev_System_Param.dev_rf_cnt++;
-	}
-	else
-	{
-		LC_Dev_System_Param.dev_rf_cnt = 3;
-	}
-
-	fs_rf_cmd[2] = LC_Dev_System_Param.dev_rf_cnt;
-	osal_memcpy(fs_rf_cmd + 3, LC_Dev_System_Param.dev_rf_buffer, 9);
-	osal_snv_write(SNV_FS_433M_KEY, 12, fs_rf_cmd);
-
-	fs_rf_cmd[0] = 0x54;
-	fs_rf_cmd[1] = 0x42;
-	fs_rf_cmd[2] = 0x02;
-	fs_rf_cmd[3] = 5;
-	fs_rf_cmd[4] = 0x33;
-	fs_rf_cmd[5] = 0x44;
-	fs_rf_cmd[6] = (LC_433m_Data.key_data >> 16)&0xff;
-	fs_rf_cmd[7] = (LC_433m_Data.key_data >> 8)&0xff;
-	fs_rf_cmd[8] = (LC_433m_Data.key_data)&0xf0;
-	fs_rf_cmd[9] = checksum(fs_rf_cmd+2, 7);
-	MultiProfile_Notify(LC_App_Set_Param.app_connHandle, MULTIPROFILE_CHAR2, 10, fs_rf_cmd);
-}
-
-static	void	LC_RF433M_Deal_Key(void)
-{
-	data_cnt++;
-	LOG("RF 433M %03d CMD 0x%8x\n",data_cnt, LC_433m_Data.key_data);
-	if(data_cnt > 2)
-	{
-		if(per_data == 0)
-		{
-			per_data = (LC_433m_Data.key_data >> 4);
-		}
-		else
-		{
-			if(per_data == (LC_433m_Data.key_data >> 4))
-			{
-				if(data_cnt == 6)
-				{
-					RF_Action(RF_STOP_REC);
-					RF_Save_Cmd();
-				}
-				else if(data_cnt > 6)
-				{
-					RF_Action(RF_STOP_REC);
-				}
-			}
-			else
-			{
-				if(data_cnt > 3)
-				{
-					data_cnt = 0;
-					per_data = 0;
-				}
-			}
-		}
-	}
-}
-/**
- * @brief	Decode 433M serial
- * 
- * @param data 
- * @param high_or_low 
- */
-static	void	LC_RF433_Analysis(uint16 data, uint8 high_or_low)
-{
-
-	static	uint32	l_433_data_count=	0;
-	static	uint8	l_data_433_step	=	0;
-	if(LC_RF433_Key_Press_Flag == 1)
-	{
-		if(!high_or_low)
-		{
-			if(data>=180)
-			{
-				LC_RF433_Key_Press_Flag	=	0;	//	rf key release
-				// LOG("start\n");
-			}
-		}
-		return;
-	}
-
-	switch(l_data_433_step)
-	{
-		case	0:
-			if(high_or_low == 0 && data >= RF_START_CODE_L_MIN)
-			{
-				l_data_433_step	=	1;
-				LC_433m_Data.key_data	=	0;
-				l_433_data_count	=	0;
-				// LOG("0\n");
-			}
-			else
-			{
-				l_data_433_step	=	0;
-			}
-		break;
-
-		case	1:
-			if(high_or_low == 1)
-			{
-				if(data >= RF_DATA_H_ONE_MIN && data <= RF_DATA_H_ONE_MAX)
-				{
-					LC_433m_Data.key_data	=	(LC_433m_Data.key_data << 1) |	0x01;
-				}
-				else if(data >= RF_DATA_H_ZERO_MIN && data <= RF_DATA_H_ZERO_MAX)
-				{
-					LC_433m_Data.key_data	=	(LC_433m_Data.key_data << 1) & (~0x01);
-				}
-				else
-				{
-					l_433_data_count	=	0;
-					l_data_433_step		=	0;
-				}
-				// LOG("433 bit %d %x\n", l_433_data_count, LC_433m_Data.key_data);
-
-				if(++l_433_data_count >= RF_DATA_COUNT)
-				{
-					l_433_data_count	=	0;
-					l_data_433_step		=	0;
-					if(LC_RF433_Key_Press_Flag == 0)
-					{
-						LC_RF433M_Deal_Key();
-					}
-				}
-			}
-		break;
-
-		default:
-		break;
-	}
-}
-static	void	LC_RF433_Check_Serial(void)
-{
-	for(uint8 i = 0;i <= 50;i++)
-	{
-		if(LC_433m_Data.data_tail == LC_433m_Data.data_head)	break;
-		LC_433m_Data.data_tail++;
-		LC_433m_Data.data_tail %= 200;
-		LC_RF433_Analysis(LC_433m_Data.time_span[LC_433m_Data.data_tail], LC_433m_Data.high_low[LC_433m_Data.data_tail]);
-	}
+	i2c_add = address;
+	i2c_write_cnt = cnt;
+	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 10);
 }
 /*------------------------------------------------------------------*/
 /* 					 	public functions		 					*/
 /*------------------------------------------------------------------*/
-uint8 RF_Chcek_Cmd(uint8 *cmd)
+uint8 online_send_one_data(uint8 channel)
 {
-	for(uint8 i = 0; i < LC_Dev_System_Param.dev_rf_cnt; i++)
+	if(LC_Dev_System_Param.dev_audio_send_flag == 0)
 	{
-		if(osal_memcmp(&LC_Dev_System_Param.dev_rf_buffer[i*3], cmd, 3))
-		{
-			return (i);
-		}
+		LC_Dev_System_Param.dev_audio_send_flag = 1;
+		LC_Dev_System_Param.dev_audio_channel = channel;
+		LC_Dev_System_Param.dev_audio_send_tick = 0;
+		LC_Dev_System_Param.dev_channel_bit = 0;
+		OTP_SEND_LOW();
+		WaitMs(5);
+		LC_Timer_Start();
+		return PPlus_SUCCESS;
 	}
-
-	return(0xff);
+	else
+	{
+		return PPlus_ERR_BUSY;
+	}
 }
-void RF_Action(rf_action_e task)
+void Output_Set_Time(uint8 second)
 {
-	switch(task)
-	{
-		case RF_START_REC:
-		{
-			hal_gpio_pin_init(GPIO_RF_433M_RX, IE);
-			hal_gpio_pull_set(GPIO_RF_433M_RX, STRONG_PULL_UP);
-			hal_gpioin_register(GPIO_RF_433M_RX, LC_Gpio_IR_IntHandler, LC_Gpio_IR_IntHandler);
-
-			LC_Timer_Start(TIME_EVT_LEARN);
-			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 100);
-			data_cnt = 0;
-			per_data = 0;
-		}
-		break;
-
-		case RF_STOP_REC:
-		{
-			osal_stop_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT);
-			hal_gpio_pull_set(GPIO_RF_433M_RX, FLOATING);
-			hal_gpioin_register(GPIO_RF_433M_RX, NULL, NULL);
-			hal_gpioin_disable(GPIO_RF_433M_RX);
-			LC_Timer_Stop();
-			data_cnt = 0;
-			per_data = 0;
-		}
-		break;
-
-		case RF_START_SEND:
-		{
-			if(LC_Dev_System_Param.dev_rf_send_busy == 0)
-			{
-				LC_Dev_System_Param.dev_rf_send_busy = 1;
-				LC_Dev_System_Param.dev_rf_cmd_bit_index = 0;
-				LC_Dev_System_Param.dev_rf_send_times = 0;
-				LC_Dev_System_Param.dev_rf_send_index = 0;
-				LC_Dev_System_Param.dev_rf_send_tick = 0;
-				hal_gpioin_disable(GPIO_RF_433M_RX);
-				hal_gpio_pin_init(GPIO_RF_433M_TX, OEN);
-				LC_Timer_Start(TIME_EVT_SEND);
-			}
-		}
-		break;
-
-		case RF_STOP_SEND:
-		{
-			LC_Dev_System_Param.dev_rf_send_busy = 0;
-			hal_gpio_pin_init(GPIO_RF_433M_TX, IE);
-			hal_gpio_pull_set(GPIO_RF_433M_TX, FLOATING);
-			LC_Timer_Stop();
-		}
-		break;
-
-		default:
-		break;
-	}
+	LED_WRITE_STATUS(GPIO_LED_RED, LED_OFF);
+	LED_WRITE_STATUS(GPIO_LED_GREEN, LED_ON);
+	LED_WRITE_STATUS(GPIO_LED_BLUE, LED_OFF);
+	OUTPUT_STATUS(1);
+	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, OUTPUT_TIMEOUT_EVT, second*1000);
 }
 /*!
  *	@fn			LC_UI_Led_Buzzer_Task_Init 
@@ -296,33 +100,262 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 		return(events ^ SYS_EVENT_MSG);
 	}
 
-	if(events & SNV_FS_DEAL_EVT)
+	if(events & REMOTE_NOTI_EVT)
 	{
-		if(LC_Dev_System_Param.dev_psk_flag == 2)
+		uint8 data[5];
+		AES128_ECB_decrypt(LC_Dev_System_Param.Role_Master.remote_notify+3, AES128_MiKey, LC_Dev_System_Param.Role_Master.remote_notify+3);
+		LOG("og data\n");
+		LOG_DUMP_BYTE(LC_Dev_System_Param.Role_Master.remote_notify, 20);
+		if(find_key_UUID(LC_Dev_System_Param.Role_Master.remote_notify+7, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
 		{
-			uint8 fs_buffer[10] = {0x99, 0x98,};
-			fs_buffer[2] = LC_Dev_System_Param.dev_psk_len;
-			osal_memcpy(fs_buffer + 3, LC_Dev_System_Param.dev_psk, LC_Dev_System_Param.dev_psk_len);
-			osal_snv_write(SNV_FS_ID_PSK, 10, fs_buffer);
-			LC_Dev_System_Param.dev_psk_flag = 1;
-			GAPMultiRole_TerminateConnection(0xffff);
+			LOG("check pass\n");
+			data[0] = 0xBB;
+			data[1] = 0x02;
+			data[2] = 0x81;
+			data[3] = 0x00;
+			data[4] = checksum(data+1, 3);
+			online_send_one_data(1);
+			Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
 		}
-		return(events ^ SNV_FS_DEAL_EVT);
+		else
+		{
+			data[0] = 0xBB;
+			data[1] = 0x02;
+			data[2] = 0x81;
+			data[3] = 0x04;
+			data[4] = checksum(data+1, 3);
+			online_send_one_data(2);
+		}
+		Master_Write_Slave(LC_Dev_System_Param.Role_Master.remote_connHandle, data, 5);
+		return(events ^ REMOTE_NOTI_EVT);
 	}
 
-	if(events & RF_433M_CHECK_EVT)
+	if(events & APP_DATA_EVT)
 	{
-		LC_RF433_Check_Serial();
-		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_433M_CHECK_EVT, 50);
-		return(events ^ RF_433M_CHECK_EVT);
+		uint8 *app_data;
+		uint8 noti_len;
+		app_data = LC_Dev_System_Param.Role_Slave.app_write_data;
+		LOG("APP data\n");
+		LOG_DUMP_BYTE(app_data, LC_Dev_System_Param.Role_Slave.app_write_len);
+		if(app_data[0] == 0xCC)
+		{
+			app_data[0] = 0xAA;
+			switch(app_data[2])
+			{
+				case 0x02:
+					app_data[1] = 7;
+					app_data[2] = 0x82;
+					osal_memcpy(app_data + 3, LC_Dev_System_Param.dev_ble_mac, 6);
+					app_data[9] = checksum(app_data+1, 8);
+					noti_len = 10;
+				break;
+				case 0x03:
+					app_data[1] = 9;
+					app_data[2] = 0x83;
+					osal_memcpy(app_data+3, LC_Dev_System_Param.dev_UUID, 8);
+					app_data[11] = checksum(app_data+1, 10);
+					noti_len = 11;
+				break;
+
+				case 0x04:
+					if((osal_memcmp(DEFAULT_ADMIN_KEY, app_data+3, 4)) && (osal_memcmp(LC_Dev_System_Param.dev_cur_admin_key, app_data+3, 4)))
+					{
+						AES128_ECB_decrypt(app_data+7, AES128_MiKey, app_data+7);
+						if(find_key_UUID(app_data+15, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
+						{
+							Output_Set_Time(app_data[25]);
+							app_data[3] = PPlus_SUCCESS;
+						}
+						else
+						{
+							app_data[3] = ERR_DATA;
+						}
+					}
+					else
+					{
+						app_data[3] = ERR_FUNCODE;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x84;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				case 0x05:
+					if((osal_memcmp(DEFAULT_ADMIN_KEY, app_data+3, 4)) || (osal_memcmp(LC_Dev_System_Param.dev_cur_admin_key, app_data+3, 4)))
+					{
+						osal_memcpy(LC_Dev_System_Param.dev_cur_admin_key, app_data+7, 4);
+						app_data[5] = 0x55;
+						app_data[6] = 0xAA;
+						osal_snv_write(SNV_FS_ADMIN_KEY, 6, app_data+5);
+						app_data[3] = PPlus_SUCCESS;
+					}
+					else
+					{
+						app_data[3] = ERR_DATA;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x85;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				case 0x06:
+					if((app_data[3] > 30) || (app_data[3] < 7))
+					{
+						app_data[3] = ERR_DATA;
+					}
+					else
+					{
+						LC_Dev_System_Param.dev_infrared_outpu_time = app_data[3];
+						app_data[3] = PPlus_SUCCESS;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x86;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				case 0x07:
+					app_data[1] = 3;
+					app_data[2] = 0x87;
+					app_data[3] = hal_gpio_read(GPIO_IN_1);
+					app_data[4] = hal_gpio_read(GPIO_INFRARED);
+					app_data[5] = checksum(app_data+1, 4);
+					noti_len = 6;
+				break;
+
+				case 0x08:
+					if((app_data[3] > 3) || (app_data[3] == 0))
+					{
+						app_data[3] = ERR_DATA;
+					}
+					else
+					{
+						online_send_one_data(app_data[3]);
+						app_data[3] = PPlus_SUCCESS;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x88;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				case 0x09:
+					if(app_data[3] < (UUID_MAX_NUM - 1)*UUID_LENGTH)
+					{
+						osal_memcpy(LC_Dev_System_Param.dev_UUID_Buffer[app_data[3]/8], app_data+4, 8);
+						Write_24C02_Serial(app_data[3], 2);
+						// int ret = LC_IIC_Master_WriteBytes(Press_I2C, IIC_AT24C02_ID, app_data[3], app_data+4, 4);
+						// WaitMs(5);
+						// LC_IIC_Master_WriteBytes(Press_I2C, IIC_AT24C02_ID, app_data[3]+4, app_data+8, 4);
+						// LOG("write i2c %d\n", ret);
+						app_data[3] = PPlus_SUCCESS;
+					}
+					else
+					{
+						app_data[3] = ERR_FUNCODE;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x89;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				case 0x0A:
+					if(app_data[3] < (UUID_MAX_NUM - 1)*UUID_LENGTH)
+					{
+						osal_memset(LC_Dev_System_Param.dev_UUID_Buffer[app_data[3]/8], 0xff, 8*app_data[4]);
+						Write_24C02_Serial(app_data[3], app_data[4]*2);
+						// int ret = LC_IIC_Master_WriteBytes(Press_I2C, IIC_AT24C02_ID, app_data[3], LC_Dev_System_Param.dev_UUID_Buffer[app_data[3]/8], 8*app_data[4]);
+						// LOG("write i2c %d\n", ret);
+						app_data[3] = PPlus_SUCCESS;
+					}
+					else
+					{
+						app_data[3] = ERR_FUNCODE;
+					}
+					app_data[1] = 2;
+					app_data[2] = 0x8A;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+
+				default:
+					app_data[1] = 2;
+					app_data[2] |= 0x80;
+					app_data[3] = ERR_FUNCODE;
+					app_data[4] = checksum(app_data+1, 3);
+					noti_len = 5;
+				break;
+			}
+		}
+		else
+		{
+			app_data[0] = 0xAA;
+			app_data[1] = 2;
+			app_data[2] |= 0x80;
+			app_data[3] = ERR_FUNCODE;
+			app_data[4] = checksum(app_data+1, 3);
+			noti_len = 5;
+		}
+		MultiProfile_Notify(LC_Dev_System_Param.Role_Slave.app_write_connHandle, MULTIPROFILE_CHAR2, noti_len, app_data);
+		return(events ^ APP_DATA_EVT);
+	}
+
+	if(events & OUTPUT_TIMEOUT_EVT)
+	{
+		if(LC_Dev_System_Param.Role_Master.remote_conn_status + LC_Dev_System_Param.Role_Slave.app_conn_status)
+		{
+			LED_WRITE_STATUS(GPIO_LED_RED, LED_OFF);
+			LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+			LED_WRITE_STATUS(GPIO_LED_BLUE, LED_ON);
+		}
+		else
+		{
+			LED_WRITE_STATUS(GPIO_LED_RED, LED_ON);
+			LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+			LED_WRITE_STATUS(GPIO_LED_BLUE, LED_OFF);
+		}
+		OUTPUT_STATUS(0);
+		return(events ^ OUTPUT_TIMEOUT_EVT);
 	}
 
 	if(events & RF_STOP_SEND_EVT)
 	{
-		RF_Action(RF_STOP_SEND);
+		if(LC_Dev_System_Param.dev_audio_send_flag == 2)
+		{
+			LC_Dev_System_Param.dev_channel_bit = 0;
+			LC_Dev_System_Param.dev_audio_send_tick = 0;
+			LC_Dev_System_Param.dev_audio_send_flag = 0;
+		}
+		else if(LC_Dev_System_Param.dev_audio_send_flag == 1)
+		{
+			LC_Timer_Start();
+		}
 		return(events ^ RF_STOP_SEND_EVT);
 	}
 
+	if(events & IIC_WRITE_EVT)
+	{
+		static uint8 index;
+
+		int ret = LC_IIC_Master_WriteBytes(Press_I2C, IIC_AT24C02_ID, i2c_add+index*4, LC_Dev_System_Param.dev_UUID_Buffer[0]+i2c_add+index*4, 4);
+		if(ret == PPlus_SUCCESS)
+		{
+			index++;
+			LOG("write i2c index %d\n", index);
+			if(index == i2c_write_cnt)
+			{
+				index = 0;
+				i2c_add = 0;
+				i2c_write_cnt = 0;
+				return(events ^ IIC_WRITE_EVT);
+			}
+		}
+		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 50);
+		return(events ^ IIC_WRITE_EVT);
+	}
     // Discard unknown events
     return 0;
 }

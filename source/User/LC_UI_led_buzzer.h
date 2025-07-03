@@ -34,10 +34,11 @@ extern	"C"	{
 /*------------------------------------------------------------------*/
 /*						UI Task Events definitions					*/
 /*------------------------------------------------------------------*/
-#define		UI_EVENT_LEVEL1		0x0001
-#define     SNV_FS_DEAL_EVT     0x0002
-#define     RF_433M_CHECK_EVT   0x0004
+#define		REMOTE_NOTI_EVT		0x0001
+#define		APP_DATA_EVT		0x0002
+#define     OUTPUT_TIMEOUT_EVT	0x0004
 #define		RF_STOP_SEND_EVT	0x0008
+#define		IIC_WRITE_EVT		0x0010
 /*------------------------------------------------------------------*/
 /*						Data structures								*/
 /*------------------------------------------------------------------*/
@@ -46,13 +47,11 @@ extern	"C"	{
 /*						external variables							*/
 /*------------------------------------------------------------------*/
 extern uint8	LC_Ui_Led_Buzzer_TaskID;
-extern  volatile uint32 LC_IR_Analysis_100ns_Cnt;
-extern  volatile uint32 LC_IR_Analysis_KeyValue;
 /*------------------------------------------------------------------*/
 /*						User function prototypes					*/
 /*------------------------------------------------------------------*/
-uint8 RF_Chcek_Cmd(uint8 *cmd);
-void RF_Action(rf_action_e task);
+uint8 online_send_one_data(uint8 channel);
+void Output_Set_Time(uint8 second);
 void 	LC_UI_Led_Buzzer_Task_Init			(uint8 task_id);
 uint16	LC_UI_Led_Buzzer_ProcessEvent		(uint8 task_id, uint16 events);
 

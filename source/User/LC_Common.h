@@ -42,6 +42,7 @@
 #include "osal_snv.h"
 #include "flash.h"
 #include "gpio.h"
+#include "i2c.h"
 #include "watchdog.h"
 #include "LC_Event_Handler.h"
 #include "multiRoleProfile.h"
@@ -55,8 +56,18 @@
 //	Key Pins
 #define		GPIO_KEY_PWR	P14
 //	Uart
-#define		GPIO_UART_TX	P34
-#define		GPIO_UART_RX	P2
+#define		GPIO_UART_TX	GPIO_DUMMY
+#define		GPIO_UART_RX	GPIO_DUMMY
+
+#define		GPIO_AUDIO_OTP	P34
+#define		GPIO_LED_RED	P2
+#define		GPIO_LED_GREEN	P3
+#define		GPIO_LED_BLUE	P7
+#define		GPIO_IIC_SCL	P11
+#define		GPIO_IIC_SDA	P20
+#define		GPIO_OUT_1		P14
+#define		GPIO_IN_1		P15
+#define		GPIO_INFRARED	P18
 
 
 /*------------------------------------------------------------------*/
@@ -69,17 +80,46 @@
 #define RF_DATA_H_ZERO_MIN       2		//	0 H minimum 0.15ms
 #define RF_DATA_COUNT            24		//	24bits
 
+#define		ERR_FUNCODE		0x01
+#define		ERR_REG_ADD		0x02
+#define		ERR_DATA		0x03
+#define		ERR_PROCESS		0x04
+#define		ERR_CRC			0x05
+
+#define		IIC_AT24C02_ID			(0x50)
+
 //	FS_ID
-#define		SNV_FS_ID_PSK			(0xA0)
+#define		SNV_FS_ADMIN_KEY		(0xA0)
 #define		SNV_FS_433M_KEY			(0xA1)
 
 #define		SET_BIT_X(a, b)					(a |= BIT(b))
 #define		RESET_BIT_X(a, b)				(a &= ~BIT(b))
 #define		GET_BIT_X(a, b)					(a & BIT(b))
 
+#define		LED_COMMON_ANODE				(1)
+#define		LED_COMMON_ACTHODE				(2)
+
+#ifndef LED_POLARITY
+#define	LED_POLARITY	LED_COMMON_ACTHODE
+#endif
+
+#if( LED_POLARITY == LED_COMMON_ANODE)
+#define		LED_ON							(1)
+#define		LED_OFF							(0)
+#elif (LED_POLARITY == LED_COMMON_ACTHODE)
+#define		LED_ON							(0)
+#define		LED_OFF							(1)
+#endif
 
 #define		RF_SEND_LOW()		hal_gpio_write(GPIO_RF_433M_TX, 0)
 #define		RF_SEND_HIGH()		hal_gpio_write(GPIO_RF_433M_TX, 1)
+#define		OTP_SEND_LOW()		hal_gpio_write(GPIO_AUDIO_OTP, 0)
+#define		OTP_SEND_HIGH()		hal_gpio_write(GPIO_AUDIO_OTP, 1)
+#define		LED_WRITE_STATUS(pin, status)	hal_gpio_write(pin, status)
+#define		OUTPUT_STATUS(status)			hal_gpio_write(GPIO_OUT_1, status)
+
+#define		UUID_MAX_NUM		(32)
+#define		UUID_LENGTH			(8)
 /*------------------------------------------------------------------*/
 /*						UI Task Events definitions					*/
 /*------------------------------------------------------------------*/
@@ -169,31 +209,44 @@ typedef struct
 
 typedef struct
 {
+	uint8 app_write_data[40];
+	uint16 app_write_connHandle;
+	uint8 app_write_len;
+	uint8 app_conn_status;
+}role_slave_t;
+
+typedef struct 
+{
+	uint8 remote_notify[20];
+	uint16 remote_connHandle;
+	uint8 remote_notify_len;
+	uint8 remote_conn_status;
+}role_master_t;
+
+typedef struct
+{
 	// dev_con_t		dev_con_param[MAX_NUM_LL_CONN];
+	role_slave_t Role_Slave;
+	role_master_t Role_Master;
 	uint8	dev_ble_mac[6];
-	uint8	dev_psk[6];
-	uint32	dev_rf_cmd;
-	uint32	dev_rf_send_tick;
-	uint8	dev_rf_buffer[9];
-	uint8	dev_rf_cnt;
-	uint8	dev_rf_index;
-	uint8	dev_rf_cmd_bit_index;
-	uint8	dev_psk_flag;	//	0 psk invalid；1 psk enable；2 psk changing；
-	uint8	dev_psk_len;
-	uint8	dev_psk_checked;
-	uint8	dev_rf_status;
-	uint8	dev_rf_send_times;
-	uint8	dev_rf_send_index;
-	uint8	dev_rf_send_busy;
+	uint8	dev_UUID[8];
+	uint8	dev_UUID_Buffer[UUID_MAX_NUM][UUID_LENGTH];
+	uint8	dev_cur_admin_key[4];
+	uint8	dev_audio_send_flag;
+	uint8	dev_audio_send_tick;
+	uint8	dev_audio_channel;
+	uint8	dev_channel_bit;
+	uint8	dev_infrared_outpu_time;//Delay_Lock
+	uint8	dev_app_output_time;
 }lc_dev_sys_param;
 
 
 /*------------------------------------------------------------------*/
 /* 					 external variables							 	*/
 /*------------------------------------------------------------------*/
-extern	lc_433m_rec_t	LC_433m_Data;
-extern	lc_app_set_t		LC_App_Set_Param;
 extern	lc_dev_sys_param	LC_Dev_System_Param;
+extern	void* Press_I2C;
+extern	const uint8 DEFAULT_ADMIN_KEY[4];
 /*------------------------------------------------------------------*/
 /* 					 User function prototypes					 	*/
 /*------------------------------------------------------------------*/
@@ -208,9 +261,39 @@ uint8	halfbyte_into_str(uint8 byte);
  *	@return		NONE
  */
 void Byte_to_TwoAcs(uint8 *des, uint8 *scr, uint8 des_len);
+/*!
+ *	@fn			check_key_UUID
+ *	@brief		check UUID is exist
+ *	@param[in]	target_uuid: targe needed to check
+ *	@param[in]	total_uuid:	all UUID
+ *	@param[in]	check_num:	check number
+ *	@return		PPlus_SUCCESS:find the target
+ *				PPlus_ERR_NOT_FOUND:not find
+ */
+uint8 check_key_UUID(uint8 *target_uuid, uint8 *total_uuid, uint8 check_num);
+/*!
+ *	@fn			find_key_UUID
+ *	@brief		Look through the UUID entries to find an address.
+ *	@param[in]	target_uuid: targe needed to check
+ *	@param[in]	total_uuid:	all UUID
+ *	@return		index  (0 - (UUID_MAX_NUM-1),
+ *				UUID_MAX_NUM if no UUID
+ */
+uint8 find_key_UUID(uint8 *target_uuid, uint8 *totoal_uuid);
+/*!
+ *	@fn			LC_IIC_Master_WriteBytes
+ *	@brief		write a serial data by i2c interface 
+ *	@param[in]	pi2c: 
+ *	@param[in]	slave_addr:	slave deivce ID
+ *	@param[in]	reg: slave start address
+ *	@param[in]	data: write data
+ *	@param[in]	size: write data length
+ *	@return		
+ */
+int LC_IIC_Master_WriteBytes(void* pi2c,uint8 slave_addr, uint8 reg, uint8* data, uint8 size);
 uint8 checksum(uint8 *data, uint16 len);
 void	LC_Common_ProcessOSALMsg	 	(osal_event_hdr_t *pMsg				);
-void	LC_Timer_Start					(time_evt_e evt_type);
+void	LC_Timer_Start					(void);
 void	LC_Timer_Stop					(void);
 
 void BSP_Pin_Init(void);

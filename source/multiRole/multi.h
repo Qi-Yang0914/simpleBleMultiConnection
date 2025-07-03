@@ -53,7 +53,7 @@ extern "C"
 #define MULTI_PERIOD_EVT                0x0004
 #define CONN_TIMEOUT_EVT                0X0008
 
-#define MULTI_PERIOD_TIMING             500     //ms
+#define MULTI_PERIOD_TIMING             300     //ms
 
 /** @defgroup Multi_Params Multi GAPRole Parameters
     @{

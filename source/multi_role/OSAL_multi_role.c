@@ -71,7 +71,7 @@ __ATTR_SECTION_SRAM__ const pTaskEventHandlerFn tasksArr[] =
     GATTServApp_ProcessEvent,
     GAPMultiRole_ProcessEvent,
     multiRoleApp_ProcessEvent,
-	// LC_UI_Led_Buzzer_ProcessEvent,
+	LC_UI_Led_Buzzer_ProcessEvent,
 	// LC_Uart_ProcessEvent,
 	// LC_Key_ProcessEvent,
     #ifdef PHY_SLB_OTA_ENABLE
@@ -123,7 +123,7 @@ void osalInitTasks( void )
     GAPMultiRole_Init( taskID++ );
     /* Application */
     multiRoleApp_Init( taskID++ );
-	// LC_UI_Led_Buzzer_Task_Init(taskID++);
+	LC_UI_Led_Buzzer_Task_Init(taskID++);
 	// LC_Uart_Task_Init(taskID++);
 	// LC_Key_Task_Init(taskID++);
     #ifdef PHY_SLB_OTA_ENABLE

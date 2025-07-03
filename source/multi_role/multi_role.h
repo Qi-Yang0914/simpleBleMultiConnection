@@ -71,7 +71,20 @@ extern "C"
 /*********************************************************************
     FUNCTIONS
 */
+/*********************************************************************
+    @fn      Master_Write_Slave
 
+    @brief   Master role write data to Slave
+
+    @param   connHandle - connection to use
+
+	@param	data - data to write
+
+	@param	len	- data len
+
+    @return  bStatus_t
+*/
+extern bStatus_t Master_Write_Slave(uint16 connHandle,uint8 *data, uint8 len);
 /*
     Task Initialization for the BLE Application
 */

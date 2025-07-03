@@ -57,6 +57,7 @@
 #include "LC_Common.h"
 #include "LC_UI_led_buzzer.h"
 #include "LC_Uart.h"
+#include "LC_AES128_ECB_CBC.h"
 /*********************************************************************
     MACROS
 */
@@ -217,7 +218,29 @@ static multiProfileCBs_t multiRole_ProfileCBs =
 /*********************************************************************
     PUBLIC FUNCTIONS
 */
+/*********************************************************************
+    @fn      Master_Write_Slave
 
+    @brief   Master role write data to Slave
+
+    @param   connHandle - connection to use
+
+	@param	data - data to write
+
+	@param	len	- data len
+
+    @return  bStatus_t
+*/
+bStatus_t Master_Write_Slave(uint16 connHandle,uint8 *data, uint8 len)
+{
+	attWriteReq_t pReq;
+	pReq.sig = 0;
+	pReq.cmd = 0;
+	pReq.handle = 15;
+	pReq.len = len;
+	osal_memcpy(pReq.value, data, len);
+	bStatus_t ret = GATT_WriteCharValue(connHandle, &pReq, multiRole_TaskId);
+}
 /*********************************************************************
     @fn      SimpleBLECentral_Init
 
@@ -248,6 +271,7 @@ void multiRoleApp_Init( uint8 task_id )
         roleProfile |= GAP_PROFILE_PERIPHERAL;
         multiRoleAPP_AdvInit();
         llInitFeatureSetDLE(TRUE);
+		ATT_SetMTUSizeMax(43);
         // Initialize GATT attributes
         GGS_AddService( GATT_ALL_SERVICES );         // GAP
         GATTServApp_AddService( GATT_ALL_SERVICES ); // GATT attributes
@@ -425,6 +449,7 @@ static void multiRoleAppProcessGATTMsg( gattMsgEvent_t* pMsg )
 
     case ATT_WRITE_RSP:
     {
+	#if 0
         /// write multi service cccd
         attWriteReq_t pReq;
         pReq.sig = 0;
@@ -443,6 +468,7 @@ static void multiRoleAppProcessGATTMsg( gattMsgEvent_t* pMsg )
         {
             LOG("GATT_WriteCharValue ERROR %d\r\n",status);
         }
+	#endif
     }
     break;
 
@@ -457,7 +483,9 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
     {
         LOG("Establish success connHandle %d,role %d\n",connHandle,role);
         LOG("Establish success connHandle %d,perIdx %d\n",connHandle,perIdx);
-
+		LED_WRITE_STATUS(GPIO_LED_RED, LED_OFF);
+		LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+		LED_WRITE_STATUS(GPIO_LED_BLUE, LED_ON);
         if( role == Master_Role )
         {
             #if( MAX_CONNECTION_MASTER_NUM > 0)
@@ -493,7 +521,7 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
                     osal_start_timerEx(gapMultiRole_TaskID,MULTI_SCHEDULE_EVT,MULTI_SCH_DELAY);
                 }
             }
-
+			LC_Dev_System_Param.Role_Master.remote_conn_status = TRUE;
             #endif
         }
         else
@@ -501,7 +529,7 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
             // slave role establish success, delete advertising schedule node
             // note: est conn success, del the busy node (ADV node) by calling the multiConfigLink_status function in the multiconfig. c file
             // LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = TRUE;
-			LC_Dev_System_Param.dev_psk_checked = FALSE;
+			LC_Dev_System_Param.Role_Slave.app_conn_status = TRUE;
         }
     }
     else
@@ -541,7 +569,7 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
     if( role == Slave_Role )
     {
         // LC_Dev_System_Param.dev_con_param[perIdx].ble_con_st = FALSE;
-
+		LC_Dev_System_Param.Role_Slave.app_conn_status = FALSE;
         // 0x01 : enable flag
         uint32 en_flag = ( 1 << ( 4 + perIdx) ) | 0x01 ;
 
@@ -565,7 +593,7 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
             scan_init_node_num =  multiRole_findInitScanNode();
             curr_master_conn_num = multiLinkGetMasterConnNum();
 			LOG("dis clear scan_init_node_num %d curr_master_conn_num %d\n",scan_init_node_num, curr_master_conn_num);
- 
+			LC_Dev_System_Param.Role_Master.remote_conn_status = FALSE;
             if(scan_init_node_num < (MAX_CONNECTION_MASTER_NUM - curr_master_conn_num))
 			{
                 muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x00 );
@@ -584,7 +612,18 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
         else
             AT_LOG("error\n");
     }
-
+	if(LC_Dev_System_Param.Role_Master.remote_conn_status + LC_Dev_System_Param.Role_Slave.app_conn_status)
+	{
+		LED_WRITE_STATUS(GPIO_LED_RED, LED_OFF);
+		LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+		LED_WRITE_STATUS(GPIO_LED_BLUE, LED_ON);
+	}
+	else
+	{
+		LED_WRITE_STATUS(GPIO_LED_RED, LED_ON);
+		LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+		LED_WRITE_STATUS(GPIO_LED_BLUE, LED_OFF);
+	}
     #endif
 }
 
@@ -621,7 +660,7 @@ static void multiRoleAPP_AdvInit(void)
         GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
 		0x17,
 		GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-		'U', 'I', 'N', 'L', 'A','N', '-', 'K', 'Y','-',
+		'U', 'I', 'N', 'L', 'A','N', '-', 'M', 'J','-',
 		'0', '0', '0', '0', '0', '0', '0', '0','0', '0', '0', '0',
     };
 	Byte_to_TwoAcs(gapMultiRole_AdvertData+15, LC_Dev_System_Param.dev_ble_mac, 12);
@@ -824,6 +863,37 @@ static void multiRoleNotifyCB(uint16 connHandle,uint16 len,uint8* data )
     }
 
     LOG("\n");
+	if(data[0] == 0xAA)
+	{
+		if(data[2] == 0x01)
+		{
+			LC_Dev_System_Param.Role_Master.remote_connHandle = connHandle;
+			osal_memcpy(LC_Dev_System_Param.Role_Master.remote_notify, data, len);
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, REMOTE_NOTI_EVT, 10);
+		}
+		else
+		{
+			data[0] = 0xBB;
+			data[1] = 0x02;
+			data[2] = 0x81;
+			data[3] = 0x01;
+			data[4] = checksum(data+1, 3);
+			Master_Write_Slave(connHandle, data, 5);
+		}
+	}
+	else
+	{
+		data[0] = 0xBB;
+		data[1] = 0x02;
+		data[2] = 0x81;
+		data[3] = 0x03;
+		data[4] = checksum(data+1, 3);
+		Master_Write_Slave(connHandle, data, 5);
+	}
+	// uint8 og_data[16];
+	// AES128_ECB_decrypt(data+3, AES128_MiKey, data+3);
+	// LOG_DUMP_BYTE(data, 20);
+	// online_send_one_data(1);
 }
 
 static void multiRoleEachScanCB( gapDeviceInfoEvent_t* pPkt )
@@ -915,7 +985,7 @@ static void multiRoleScanDoneCB( GAPMultiRolScanner_t* node )
         //2022 02 14 Increased probability of scanning adv devices
         uint8  rand_char;
         TRNG_Rand(&rand_char,1);
-		LOG("RAND INT %d\n", rand_char);
+		// LOG("RAND INT %d\n", rand_char);
 		rand_char = rand_char % DEFAULT_SCAN_DURATION;
         GAP_SetParamValue( TGAP_GEN_DISC_SCAN, DEFAULT_SCAN_DURATION + (rand_char/*&0x0F*/) );
         GAP_SetParamValue( TGAP_LIM_DISC_SCAN, DEFAULT_SCAN_DURATION + (rand_char/*&0x0F*/) );

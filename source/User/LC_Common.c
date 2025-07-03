@@ -20,24 +20,15 @@
 /*------------------------------------------------------------------*/
 /* 					 	public variables		 					*/
 /*------------------------------------------------------------------*/
-lc_433m_rec_t	LC_433m_Data	=
-{
-	.data_tail	=	0,
-	.data_head	=	0,
-	.high_low	=	{0,},
-	.key_press_flag	=	0,
-	.time_span	=	{0},
-	.key_data	=	0,
-	.get_key_data	=	0,
-};
-lc_app_set_t		LC_App_Set_Param;
 lc_dev_sys_param	LC_Dev_System_Param	=	
 {
-	.dev_psk_flag = 1,
-	.dev_psk = {'1', '2', '3', '4', '5', '6'},
-	.dev_psk_len = 6,
-	.dev_psk_checked = FALSE,
+	.dev_UUID = {0x31, 0x30, 0x30, 0x30, 0x38, 0x30, 0x30, 0x30},
+	.dev_UUID_Buffer = {{0x31, 0x30, 0x30, 0x30, 0x38, 0x30, 0x30, 0x33},},
+	.dev_infrared_outpu_time = 7,
+	.dev_app_output_time = 7,
 };
+void* Press_I2C	= NULL;
+const uint8 DEFAULT_ADMIN_KEY[4] = {0xAA, 0xBB, 0xCC, 0xDD};
 /*------------------------------------------------------------------*/
 /* 					 	local functions			 					*/
 /*------------------------------------------------------------------*/
@@ -118,6 +109,74 @@ uint8 checksum(uint8 *data, uint16 len)
 	return((uint8)sum);
 }
 /*!
+ *	@fn			check_key_UUID
+ *	@brief		check UUID is exist
+ *	@param[in]	target_uuid: targe needed to check
+ *	@param[in]	total_uuid:	all UUID
+ *	@param[in]	check_num:	check number
+ *	@return		PPlus_SUCCESS:find the target
+ *				PPlus_ERR_NOT_FOUND:not find
+ */
+uint8 check_key_UUID(uint8 *target_uuid, uint8 *total_uuid, uint8 check_num)
+{
+	uint8 ret = PPlus_SUCCESS;
+	uint8 i;
+	if(check_num > UUID_MAX_NUM)
+	{
+		ret = PPlus_ERR_INVALID_ADDR;
+		return ret;
+	}
+	for(i = 0;i < check_num; i++)
+	{
+		if(osal_memcmp(total_uuid + i, target_uuid, UUID_LENGTH))
+		{
+			ret = PPlus_SUCCESS;
+			return ret;
+		}
+	}
+	ret = PPlus_ERR_NOT_FOUND;
+	return ret;
+}
+/*!
+ *	@fn			find_key_UUID
+ *	@brief		Look through the UUID entries to find an address.
+ *	@param[in]	target_uuid: targe needed to check
+ *	@param[in]	total_uuid:	all UUID
+ *	@return		index  (0 - (UUID_MAX_NUM-1),
+ *				UUID_MAX_NUM if no UUID
+ */
+uint8 find_key_UUID(uint8 *target_uuid, uint8 *totoal_uuid)
+{
+	for(uint8 idx = 0; idx < UUID_MAX_NUM; idx++)
+	{
+		if(osal_memcmp(totoal_uuid+idx, target_uuid, UUID_LENGTH))
+		{
+			return(idx);
+		}
+	}
+	return(UUID_MAX_NUM);
+}
+/*!
+ *	@fn			LC_IIC_Master_WriteBytes
+ *	@brief		write a serial data by i2c interface 
+ *	@param[in]	pi2c: 
+ *	@param[in]	slave_addr:	slave deivce ID
+ *	@param[in]	reg: slave start address
+ *	@param[in]	data: write data
+ *	@param[in]	size: write data length
+ *	@return		
+ */
+int LC_IIC_Master_WriteBytes(void* pi2c,uint8 slave_addr, uint8 reg, uint8* data, uint8 size)
+{
+	HAL_ENTER_CRITICAL_SECTION();
+	hal_i2c_tx_start(pi2c);
+	hal_i2c_addr_update(pi2c, slave_addr);
+	hal_i2c_send(pi2c, &reg,1);
+	hal_i2c_send(pi2c, data, size);
+	HAL_EXIT_CRITICAL_SECTION();
+	return	hal_i2c_wait_tx_completed(pi2c);
+}
+/*!
  *	@fn			LC_Common_ProcessOSALMsg
  *	@brief		Process an incoming task message,nothing.
  *	@param[in]	pMsg	:message to process
@@ -135,16 +194,9 @@ void LC_Common_ProcessOSALMsg(osal_event_hdr_t *pMsg)
 
 extern	void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt);
 extern	void	__ATTR_SECTION_SRAM__	__attribute__((used))	LC_RF_433M_Send(uint8 evt);
-void LC_Timer_Start(time_evt_e evt_type)
+void LC_Timer_Start(void)
 {
-	if(evt_type == TIME_EVT_LEARN)
-	{
-		hal_timer_init(LC_RGB_Valeu_Deal);
-	}
-	else if(evt_type == TIME_EVT_SEND)
-	{
-		hal_timer_init(LC_RF_433M_Send);
-	}
+	hal_timer_init(LC_RF_433M_Send);
 	hal_timer_set(AP_TIMER_ID_5, 100);
 	LOG("Start timer:\n");
 }
@@ -203,34 +255,54 @@ void BSP_Pin_Init(void)
 {
 	hal_pwrmgr_register(MOD_USR8, NULL, NULL);
 	hal_pwrmgr_lock(MOD_USR8);
+	
+	uint8 fs_buffer[6];
 
-	hal_gpio_pin_init(GPIO_KEY_PWR, IE);
-	hal_gpio_pull_set(GPIO_KEY_PWR, STRONG_PULL_UP);
-	hal_gpioin_register(GPIO_KEY_PWR, NULL, LC_Key_Pin_IntHandler);
-	uint8 fs_buffer[16] = {0, 0};
-	osal_snv_read(SNV_FS_ID_PSK, 10, fs_buffer);
-	if(fs_buffer[0] == 0x99 && fs_buffer[1] == 0x98)
+	osal_snv_read(SNV_FS_ADMIN_KEY, 6, fs_buffer);
+	if(fs_buffer[0] == 0x55 && fs_buffer[1] == 0xAA)
 	{
-		LC_Dev_System_Param.dev_psk_flag = 1;
-		LC_Dev_System_Param.dev_psk_len = fs_buffer[2];
-		osal_memcpy(LC_Dev_System_Param.dev_psk, fs_buffer + 3, LC_Dev_System_Param.dev_psk_len);
+		osal_memcpy(LC_Dev_System_Param.dev_cur_admin_key, fs_buffer+2, 4);
 	}
-	WaitMs(10);
-	hal_watchdog_feed();
-	osal_snv_read(SNV_FS_433M_KEY, 12, fs_buffer);
-	if((fs_buffer[0] == 0x33) && (fs_buffer[1] == 0x44))
+	else
 	{
-		osal_memcpy(LC_Dev_System_Param.dev_rf_buffer, fs_buffer + 3, 9);
-		LC_Dev_System_Param.dev_rf_cnt = fs_buffer[2];
-		if(LC_Dev_System_Param.dev_rf_cnt < 3)
-		{
-			LC_Dev_System_Param.dev_rf_index = LC_Dev_System_Param.dev_rf_cnt;
-		}
-		else
-		{
-			LC_Dev_System_Param.dev_rf_index = 0;
-		}
+		osal_memset(LC_Dev_System_Param.dev_cur_admin_key, 0xff, 4);
 	}
+
+	hal_gpio_pin_init(GPIO_LED_RED, OEN);
+	hal_gpio_pin_init(GPIO_LED_GREEN, OEN);
+	hal_gpio_pin_init(GPIO_LED_BLUE, OEN);
+
+	LED_WRITE_STATUS(GPIO_LED_RED, LED_ON);
+	LED_WRITE_STATUS(GPIO_LED_GREEN, LED_OFF);
+	LED_WRITE_STATUS(GPIO_LED_BLUE, LED_OFF);
+
+	hal_gpio_pin_init(GPIO_AUDIO_OTP, OEN);
+	OTP_SEND_HIGH();
+
+	hal_gpio_pin_init(GPIO_OUT_1, OEN);
+	OUTPUT_STATUS(0);
+
+	hal_gpio_pin_init(GPIO_INFRARED, IE);
+	hal_gpio_pull_set(GPIO_INFRARED, PULL_DOWN);
+	hal_gpioin_register(GPIO_INFRARED, LC_Key_Pin_IntHandler, NULL);
+
+	hal_i2c_pin_init(I2C_0, GPIO_IIC_SDA, GPIO_IIC_SCL);
+	Press_I2C = hal_i2c_init(I2C_0, I2C_CLOCK_100K);
+	if(Press_I2C == NULL)
+	{
+		LOG("i2c mater init failed\n");
+	}
+	else
+	{
+		LOG("i2c master init successed\n");
+	}
+	for(uint8 i = 0; i < UUID_MAX_NUM*2; i++)
+	{
+		hal_i2c_read(Press_I2C, IIC_AT24C02_ID, i*4, LC_Dev_System_Param.dev_UUID_Buffer[0]+i*4, 4);
+	}
+	// hal_i2c_read(Press_I2C, IIC_AT24C02_ID, 0, LC_Dev_System_Param.dev_UUID_Buffer[0], 128);
+	// hal_i2c_read(Press_I2C, IIC_AT24C02_ID, 128, LC_Dev_System_Param.dev_UUID_Buffer[16], 128);
+	LOG_DUMP_BYTE(LC_Dev_System_Param.dev_UUID_Buffer[0], 256);
 }
 
 /*!

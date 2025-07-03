@@ -38,94 +38,56 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_RGB_Valeu_Deal(uint8 evt)
 {
 	if(evt == HAL_EVT_TIMER_5)
 	{
-		LC_IR_Analysis_100ns_Cnt++;
 	}
 }
 void	__ATTR_SECTION_SRAM__ __attribute__((used))		LC_RF_433M_Send(uint8 evt)
 {
 	if(evt == HAL_EVT_TIMER_5)
 	{
-		if(LC_Dev_System_Param.dev_rf_send_busy == 1)
+		LC_Dev_System_Param.dev_audio_send_tick++;
+		if(LC_Dev_System_Param.dev_channel_bit < 8)
 		{
-			LC_Dev_System_Param.dev_rf_send_tick++;
-			if(LC_Dev_System_Param.dev_rf_send_index == 0)
+			if(LC_Dev_System_Param.dev_audio_channel & BIT(LC_Dev_System_Param.dev_channel_bit))
 			{
-				if(LC_Dev_System_Param.dev_rf_send_tick == 1)
+				if(LC_Dev_System_Param.dev_audio_send_tick == 1)
 				{
-					RF_SEND_HIGH();
+					OTP_SEND_HIGH();
 				}
-				else if(LC_Dev_System_Param.dev_rf_send_tick == 5)
+				else if(LC_Dev_System_Param.dev_audio_send_tick == 7)
 				{
-					RF_SEND_LOW();
+					OTP_SEND_LOW();
 				}
-				else if(LC_Dev_System_Param.dev_rf_send_tick == 95)
+				else if(LC_Dev_System_Param.dev_audio_send_tick == 8)
 				{
-					RF_SEND_HIGH();
-					LC_Dev_System_Param.dev_rf_send_tick = 0;
-					LC_Dev_System_Param.dev_rf_send_index = 1;
-					LC_Dev_System_Param.dev_rf_send_tick = 0;
+					// OTP_SEND_HIGH();
+					LC_Dev_System_Param.dev_channel_bit++;
+					LC_Dev_System_Param.dev_audio_send_tick = 0;
 				}
 			}
-			else if(LC_Dev_System_Param.dev_rf_send_index == 1)
+			else
 			{
-				if(LC_Dev_System_Param.dev_rf_cmd_bit_index < 24)
+				if(LC_Dev_System_Param.dev_audio_send_tick == 1)
 				{
-					if(LC_Dev_System_Param.dev_rf_cmd & BIT(23 - LC_Dev_System_Param.dev_rf_cmd_bit_index))
-					{
-						if(LC_Dev_System_Param.dev_rf_send_tick == 1)
-						{
-							RF_SEND_HIGH();
-						}
-						else if(LC_Dev_System_Param.dev_rf_send_tick == 8)
-						{
-							RF_SEND_LOW();
-						}
-						else if(LC_Dev_System_Param.dev_rf_send_tick == 12)
-						{
-							RF_SEND_HIGH();
-							LC_Dev_System_Param.dev_rf_cmd_bit_index++;
-							LC_Dev_System_Param.dev_rf_send_tick = 0;
-						}
-					}
-					else
-					{
-						if(LC_Dev_System_Param.dev_rf_send_tick == 1)
-						{
-							RF_SEND_HIGH();
-						}
-						else if(LC_Dev_System_Param.dev_rf_send_tick == 4)
-						{
-							RF_SEND_LOW();
-						}
-						else if(LC_Dev_System_Param.dev_rf_send_tick == 12)
-						{
-							RF_SEND_HIGH();
-							LC_Dev_System_Param.dev_rf_cmd_bit_index++;
-							LC_Dev_System_Param.dev_rf_send_tick = 0;
-						}
-					}
+					OTP_SEND_HIGH();
 				}
-				else
+				else if(LC_Dev_System_Param.dev_audio_send_tick == 3)
 				{
-					LC_Dev_System_Param.dev_rf_send_index = 2;
-					LC_Dev_System_Param.dev_rf_send_tick = 0;
-					LC_Dev_System_Param.dev_rf_cmd_bit_index = 0;
-					RF_SEND_LOW();
+					OTP_SEND_LOW();
+				}
+				else if(LC_Dev_System_Param.dev_audio_send_tick == 8)
+				{
+					// OTP_SEND_HIGH();
+					LC_Dev_System_Param.dev_channel_bit++;
+					LC_Dev_System_Param.dev_audio_send_tick = 0;
 				}
 			}
-			else if(LC_Dev_System_Param.dev_rf_send_index == 2)
-			{
-				if(LC_Dev_System_Param.dev_rf_send_tick == 200)
-				{
-					LC_Dev_System_Param.dev_rf_send_index = 0;
-					LC_Dev_System_Param.dev_rf_send_tick = 0;
-					LC_Dev_System_Param.dev_rf_send_times++;
-					if(LC_Dev_System_Param.dev_rf_send_times > 49)
-					{
-						osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_STOP_SEND_EVT, 10);
-					}
-				}
-			}
+		}
+		else
+		{
+			OTP_SEND_HIGH();
+			LC_Dev_System_Param.dev_audio_send_flag = 2;
+			LC_Timer_Stop();
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, RF_STOP_SEND_EVT, 10);
 		}
 	}
 }
@@ -187,11 +149,13 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
 {
     switch (pin)
     {
-        case GPIO_KEY_PWR:
-            if(type == NEGEDGE)
+        case GPIO_INFRARED:
+            if(type == POSEDGE)
             {
-                hal_gpioin_register(GPIO_KEY_PWR, NULL, NULL);
-                osal_start_timerEx(LC_Key_TaskID, KEY_SCANF_EVT, 20);
+                // hal_gpioin_register(GPIO_KEY_PWR, NULL, NULL);
+                // osal_start_timerEx(LC_Key_TaskID, KEY_SCANF_EVT, 20);
+				LOG("INFRARED INT\n");
+				Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
             }
         break;
 		default:
@@ -210,22 +174,6 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Gpio_IR_IntHandler(GPIO_Pin
 {
 	switch(pin){
 		case	GPIO_RF_433M_RX:
-			if(type == NEGEDGE)
-			{
-				LC_433m_Data.data_head++;
-				LC_433m_Data.data_head	%=	200;
-				LC_433m_Data.time_span[LC_433m_Data.data_head]	=	LC_IR_Analysis_100ns_Cnt;
-				LC_433m_Data.high_low[LC_433m_Data.data_head]	=	1;
-				LC_IR_Analysis_100ns_Cnt	=	0;
-			}
-			else
-			{
-				LC_433m_Data.data_head++;
-				LC_433m_Data.data_head	%=	200;
-				LC_433m_Data.time_span[LC_433m_Data.data_head]	=	LC_IR_Analysis_100ns_Cnt;
-				LC_433m_Data.high_low[LC_433m_Data.data_head]	=	0;
-				LC_IR_Analysis_100ns_Cnt	=	0;
-			}
 		break;
 		default:
 		
