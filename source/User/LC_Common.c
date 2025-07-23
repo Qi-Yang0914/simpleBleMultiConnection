@@ -282,6 +282,10 @@ void BSP_Pin_Init(void)
 	hal_gpio_pin_init(GPIO_OUT_1, OEN);
 	OUTPUT_STATUS(0);
 
+	hal_gpio_pin_init(GPIO_IN_1, IE);
+	hal_gpio_pull_set(GPIO_IN_1, STRONG_PULL_UP);
+	hal_gpioin_register(GPIO_IN_1, NULL, LC_Key_Pin_IntHandler);
+
 	hal_gpio_pin_init(GPIO_INFRARED, IE);
 	hal_gpio_pull_set(GPIO_INFRARED, PULL_DOWN);
 	hal_gpioin_register(GPIO_INFRARED, LC_Key_Pin_IntHandler, NULL);

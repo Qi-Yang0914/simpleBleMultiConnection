@@ -158,6 +158,14 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
 				Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
             }
         break;
+
+		case GPIO_IN_1:
+			if(type == NEGEDGE)
+			{
+				osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, OUTPUT_INT_CHK_EVT, 200);
+				LOG("GPIO_IN_1 INT\n");
+			}
+		break;
 		default:
 
 			break;

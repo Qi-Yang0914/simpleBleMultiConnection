@@ -154,13 +154,15 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 					app_data[2] = 0x83;
 					osal_memcpy(app_data+3, LC_Dev_System_Param.dev_UUID, 8);
 					app_data[11] = checksum(app_data+1, 10);
-					noti_len = 11;
+					noti_len = 12;
 				break;
 
 				case 0x04:
-					if((osal_memcmp(DEFAULT_ADMIN_KEY, app_data+3, 4)) && (osal_memcmp(LC_Dev_System_Param.dev_cur_admin_key, app_data+3, 4)))
+					if((osal_memcmp(DEFAULT_ADMIN_KEY, app_data+3, 4)) || (osal_memcmp(LC_Dev_System_Param.dev_cur_admin_key, app_data+3, 4)))
 					{
 						AES128_ECB_decrypt(app_data+7, AES128_MiKey, app_data+7);
+						LOG("decrypt data\n");
+						LOG_DUMP_BYTE(app_data+7, 8);
 						if(find_key_UUID(app_data+15, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
 						{
 							Output_Set_Time(app_data[25]);
@@ -201,7 +203,7 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 				break;
 
 				case 0x06:
-					if((app_data[3] > 30) || (app_data[3] < 7))
+					if((app_data[3] > 30) || (app_data[3] < 3))
 					{
 						app_data[3] = ERR_DATA;
 					}
@@ -226,11 +228,11 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 				break;
 
 				case 0x08:
-					if((app_data[3] > 3) || (app_data[3] == 0))
-					{
-						app_data[3] = ERR_DATA;
-					}
-					else
+					// if((app_data[3] > 3) || (app_data[3] == 0))
+					// {
+					// 	app_data[3] = ERR_DATA;
+					// }
+					// else
 					{
 						online_send_one_data(app_data[3]);
 						app_data[3] = PPlus_SUCCESS;
@@ -355,6 +357,15 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 		}
 		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 50);
 		return(events ^ IIC_WRITE_EVT);
+	}
+
+	if(events & OUTPUT_INT_CHK_EVT)
+	{
+		if(hal_gpio_read(GPIO_IN_1) == 0)
+		{
+			Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
+		}
+		return(events ^ OUTPUT_INT_CHK_EVT);
 	}
     // Discard unknown events
     return 0;
