@@ -270,6 +270,7 @@ void multiRoleApp_Init( uint8 task_id )
     {
         roleProfile |= GAP_PROFILE_PERIPHERAL;
         multiRoleAPP_AdvInit();
+		llInitFeatureSet2MPHY(TRUE);
         llInitFeatureSetDLE(TRUE);
 		ATT_SetMTUSizeMax(43);
         // Initialize GATT attributes
@@ -673,7 +674,7 @@ static void multiRoleAPP_AdvInit(void)
 		0xff,0xff,0xff,0xff,0xff,0xff,
 		0x66,
 		0x00,0xF9,
-		0x01,0x00,0x06,
+		0x01,0x00,0x07,
 		0x0a,0x02,
 		0x00,
     };

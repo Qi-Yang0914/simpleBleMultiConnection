@@ -162,10 +162,10 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 					{
 						AES128_ECB_decrypt(app_data+7, AES128_MiKey, app_data+7);
 						LOG("decrypt data\n");
-						LOG_DUMP_BYTE(app_data+7, 8);
-						if(find_key_UUID(app_data+15, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
+						LOG_DUMP_BYTE(app_data+7, 16);
+						if(find_key_UUID(app_data+11, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
 						{
-							Output_Set_Time(app_data[25]);
+							Output_Set_Time(app_data[24]);
 							app_data[3] = PPlus_SUCCESS;
 						}
 						else
