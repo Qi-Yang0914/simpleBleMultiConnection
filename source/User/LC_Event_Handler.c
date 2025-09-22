@@ -150,11 +150,12 @@ void	__ATTR_SECTION_SRAM__  __attribute__((used))	LC_Key_Pin_IntHandler(GPIO_Pin
     switch (pin)
     {
         case GPIO_INFRARED:
-            if(type == POSEDGE)
+            if(type == NEGEDGE)
             {
                 // hal_gpioin_register(GPIO_KEY_PWR, NULL, NULL);
                 // osal_start_timerEx(LC_Key_TaskID, KEY_SCANF_EVT, 20);
 				LOG("INFRARED INT\n");
+				osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, INFRARED_INT_EVT, 50);
 				Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
             }
         break;

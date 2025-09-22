@@ -287,8 +287,8 @@ void BSP_Pin_Init(void)
 	hal_gpioin_register(GPIO_IN_1, NULL, LC_Key_Pin_IntHandler);
 
 	hal_gpio_pin_init(GPIO_INFRARED, IE);
-	hal_gpio_pull_set(GPIO_INFRARED, PULL_DOWN);
-	hal_gpioin_register(GPIO_INFRARED, LC_Key_Pin_IntHandler, NULL);
+	hal_gpio_pull_set(GPIO_INFRARED, STRONG_PULL_UP);
+	hal_gpioin_register(GPIO_INFRARED, NULL, LC_Key_Pin_IntHandler);
 
 	hal_i2c_pin_init(I2C_0, GPIO_IIC_SDA, GPIO_IIC_SCL);
 	Press_I2C = hal_i2c_init(I2C_0, I2C_CLOCK_100K);

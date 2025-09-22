@@ -40,6 +40,7 @@ extern	"C"	{
 #define		RF_STOP_SEND_EVT	0x0008
 #define		IIC_WRITE_EVT		0x0010
 #define		OUTPUT_INT_CHK_EVT	0x0020
+#define		INFRARED_INT_EVT	0x0040
 /*------------------------------------------------------------------*/
 /*						Data structures								*/
 /*------------------------------------------------------------------*/

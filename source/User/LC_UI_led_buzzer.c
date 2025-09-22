@@ -165,6 +165,7 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 						LOG_DUMP_BYTE(app_data+7, 16);
 						if(find_key_UUID(app_data+11, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
 						{
+							online_send_one_data(1);
 							Output_Set_Time(app_data[24]);
 							app_data[3] = PPlus_SUCCESS;
 						}
@@ -363,9 +364,16 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 	{
 		if(hal_gpio_read(GPIO_IN_1) == 0)
 		{
+			online_send_one_data(1);
 			Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
 		}
 		return(events ^ OUTPUT_INT_CHK_EVT);
+	}
+
+	if(events & INFRARED_INT_EVT)
+	{
+		online_send_one_data(1);
+		return(events ^ INFRARED_INT_EVT);
 	}
     // Discard unknown events
     return 0;
