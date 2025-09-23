@@ -264,6 +264,7 @@ void multiRoleApp_Init( uint8 task_id )
 	hal_flash_read(0x4000, LC_Dev_System_Param.dev_ble_mac+2, 4);
 	LOG("mac : ");
 	LOG_DUMP_BYTE(LC_Dev_System_Param.dev_ble_mac, 6);
+	osal_memcpy(LC_Dev_System_Param.dev_UUID, LC_Dev_System_Param.dev_ble_mac, 6);
     uint8   roleProfile = 0;
     TRNG_INIT();
     #if ( MAX_CONNECTION_SLAVE_NUM > 0 )
@@ -492,6 +493,14 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
             #if( MAX_CONNECTION_MASTER_NUM > 0)
             ///del the current node when the establishment is successful in multi_schedule.c
             // muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x00 );
+			attWriteReq_t pReq;
+			pReq.sig = 0;
+			pReq.cmd = 0;
+			pReq.handle = 18 ;
+			pReq.len = 2;
+			pReq.value[0] = (unsigned char)(GATT_CLIENT_CFG_NOTIFY);
+			pReq.value[1] = (unsigned char)(GATT_CLIENT_CFG_NOTIFY >> 8);
+			bStatus_t status = GATT_WriteCharValue(connHandle,&pReq,multiRole_TaskId);
 
             if( multiGetSlaveConnList() != NULL )
             {
@@ -674,7 +683,7 @@ static void multiRoleAPP_AdvInit(void)
 		0xff,0xff,0xff,0xff,0xff,0xff,
 		0x66,
 		0x00,0xF9,
-		0x01,0x00,0x08,
+		0x01,0x00,0x09,
 		0x0a,0x02,
 		0x00,
     };
@@ -839,7 +848,7 @@ static void multiRoleSDPCB( void* msg )
 
                 if(status == SUCCESS)
                 {
-                    LOG("GATT_WriteCharValue Notify success handle %d\n",sdp_info->connHandle);
+                    LOG("GATT_WriteCharValue Notify success handle %d %d\n",sdp_info->connHandle, charac->valueHandle);
                 }
                 else
                 {

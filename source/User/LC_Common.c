@@ -22,8 +22,8 @@
 /*------------------------------------------------------------------*/
 lc_dev_sys_param	LC_Dev_System_Param	=	
 {
-	.dev_UUID = {0x31, 0x30, 0x30, 0x30, 0x38, 0x30, 0x30, 0x30},
-	.dev_UUID_Buffer = {{0x31, 0x30, 0x30, 0x30, 0x38, 0x30, 0x30, 0x33},},
+	.dev_UUID = {0, 0, 0, 0, 0, 0, 0, 0},
+	.dev_UUID_Buffer = {{0, 0, 0, 0, 0, 0, 0, 0},},
 	.dev_infrared_outpu_time = 7,
 	.dev_app_output_time = 7,
 };

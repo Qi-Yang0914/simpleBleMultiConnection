@@ -21,6 +21,7 @@
 /*------------------------------------------------------------------*/
 static uint8 i2c_add;
 static uint8 i2c_write_cnt;
+static uint8 index;
 /*------------------------------------------------------------------*/
 /* 					 	public variables		 					*/
 /*------------------------------------------------------------------*/
@@ -31,6 +32,7 @@ uint8	LC_Ui_Led_Buzzer_TaskID;
 /*------------------------------------------------------------------*/
 static void Write_24C02_Serial(uint8 address, uint8 cnt)
 {
+	index = 0;
 	i2c_add = address;
 	i2c_write_cnt = cnt;
 	osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 10);
@@ -284,6 +286,15 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 					noti_len = 5;
 				break;
 
+				case 0xFF:
+					osal_memset(LC_Dev_System_Param.dev_UUID_Buffer[0], 0xff, UUID_MAX_NUM*UUID_LENGTH);
+					Write_24C02_Serial(0, UUID_MAX_NUM*2);
+					app_data[1] = 1;
+					app_data[2] = 0xFF;
+					app_data[3] = checksum(app_data+1, 2);
+					noti_len = 4;
+				break;
+
 				default:
 					app_data[1] = 2;
 					app_data[2] |= 0x80;
@@ -341,8 +352,6 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 
 	if(events & IIC_WRITE_EVT)
 	{
-		static uint8 index;
-
 		int ret = LC_IIC_Master_WriteBytes(Press_I2C, IIC_AT24C02_ID, i2c_add+index*4, LC_Dev_System_Param.dev_UUID_Buffer[0]+i2c_add+index*4, 4);
 		if(ret == PPlus_SUCCESS)
 		{
@@ -356,7 +365,7 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 				return(events ^ IIC_WRITE_EVT);
 			}
 		}
-		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 50);
+		osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, IIC_WRITE_EVT, 10);
 		return(events ^ IIC_WRITE_EVT);
 	}
 
