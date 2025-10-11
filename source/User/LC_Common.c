@@ -149,7 +149,7 @@ uint8 find_key_UUID(uint8 *target_uuid, uint8 *totoal_uuid)
 {
 	for(uint8 idx = 0; idx < UUID_MAX_NUM; idx++)
 	{
-		if(osal_memcmp(totoal_uuid+idx, target_uuid, UUID_LENGTH))
+		if(osal_memcmp(totoal_uuid+idx*UUID_LENGTH, target_uuid, UUID_LENGTH))
 		{
 			return(idx);
 		}
