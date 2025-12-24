@@ -232,6 +232,7 @@ typedef struct
 	uint8	dev_UUID[8];
 	uint8	dev_UUID_Buffer[UUID_MAX_NUM][UUID_LENGTH];
 	uint8	dev_cur_admin_key[4];
+	uint8	dev_rand_challenge[4];
 	uint8	dev_audio_send_flag;
 	uint8	dev_audio_send_tick;
 	uint8	dev_audio_channel;

@@ -25,6 +25,7 @@ extern "C"
 #define MULTIROLE_HID_SEND_REPORT_EVT                 0x1000
 #define MULTIROLE_HID_IDLE_EVT                        0x2000
 #define MULTIROLE_PERIOD_EVT                          0x4000
+#define SEND_REMOTE_RAND_EVT					   0x0002
 
 
 /*********************************************************************

@@ -402,6 +402,31 @@ uint16 multiRoleApp_ProcessEvent( uint8 task_id, uint16 events )
         return ( events ^ MULTIROLE_PERIOD_EVT );
     }
 
+	if(events & SEND_REMOTE_RAND_EVT)
+	{
+		uint8 data[8];
+		data[0] = 0xBB;
+		data[1] = 0x05;
+		data[2] = 0x82;
+		LL_Rand(LC_Dev_System_Param.dev_rand_challenge, 4);
+		LOG("rand : ");
+		LOG_DUMP_BYTE(LC_Dev_System_Param.dev_rand_challenge, 4);
+		osal_memcpy(data+3, LC_Dev_System_Param.dev_rand_challenge, 4);
+		data[7] = checksum(data+1, 6);
+
+		bStatus_t status = Master_Write_Slave(LC_Dev_System_Param.Role_Master.remote_connHandle, data, 8);
+		if(status == SUCCESS)
+		{
+			LOG("send rand success\n");
+		}
+		else
+		{
+			LOG("send rand %d\n", status);
+			osal_start_timerEx(multiRole_TaskId, SEND_REMOTE_RAND_EVT, 50);
+		}
+		return(events ^ SEND_REMOTE_RAND_EVT);
+	}
+
     // Discard unknown events
     return 0;
 }
@@ -501,6 +526,16 @@ static void multiRoleEstablishCB( uint8 status,uint16 connHandle,GAPMultiRole_St
 			pReq.value[0] = (unsigned char)(GATT_CLIENT_CFG_NOTIFY);
 			pReq.value[1] = (unsigned char)(GATT_CLIENT_CFG_NOTIFY >> 8);
 			bStatus_t status = GATT_WriteCharValue(connHandle,&pReq,multiRole_TaskId);
+			if(status == SUCCESS)
+			{
+				LOG("GATT_WriteCharValue success handle %d\n",connHandle);
+				osal_start_timerEx(multiRole_TaskId, SEND_REMOTE_RAND_EVT, 50);
+			}
+			else
+			{
+				LOG("GATT_WriteCharValue ERROR %d\r\n",status);
+				osal_start_timerEx(multiRole_TaskId, SEND_REMOTE_RAND_EVT, 5000);
+			}
 
             if( multiGetSlaveConnList() != NULL )
             {
@@ -604,6 +639,7 @@ static void multiRoleTerminateCB( uint16 connHandle,GAPMultiRole_State_t role,ui
             curr_master_conn_num = multiLinkGetMasterConnNum();
 			LOG("dis clear scan_init_node_num %d curr_master_conn_num %d\n",scan_init_node_num, curr_master_conn_num);
 			LC_Dev_System_Param.Role_Master.remote_conn_status = FALSE;
+			osal_memset(LC_Dev_System_Param.dev_rand_challenge, 0, 4);
             if(scan_init_node_num < (MAX_CONNECTION_MASTER_NUM - curr_master_conn_num))
 			{
                 muliSchedule_config( MULTI_SCH_INITIATOR_MODE, 0x00 );
@@ -683,7 +719,7 @@ static void multiRoleAPP_AdvInit(void)
 		0xff,0xff,0xff,0xff,0xff,0xff,
 		0x66,
 		0x00,0xF9,
-		0x01,0x00,0x10,
+		0x01,0x00,0x11,
 		0x0a,0x02,
 		0x00,
     };
@@ -879,7 +915,7 @@ static void multiRoleNotifyCB(uint16 connHandle,uint16 len,uint8* data )
 		{
 			LC_Dev_System_Param.Role_Master.remote_connHandle = connHandle;
 			osal_memcpy(LC_Dev_System_Param.Role_Master.remote_notify, data, len);
-			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, REMOTE_NOTI_EVT, 10);
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, REMOTE_NOTI_EVT, 50);
 		}
 		else
 		{

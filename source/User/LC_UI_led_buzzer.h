@@ -41,6 +41,7 @@ extern	"C"	{
 #define		IIC_WRITE_EVT		0x0010
 #define		OUTPUT_INT_CHK_EVT	0x0020
 #define		INFRARED_INT_EVT	0x0040
+#define		SEND_RESPONSE_EVT	0x0080
 /*------------------------------------------------------------------*/
 /*						Data structures								*/
 /*------------------------------------------------------------------*/

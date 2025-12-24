@@ -22,6 +22,7 @@
 static uint8 i2c_add;
 static uint8 i2c_write_cnt;
 static uint8 index;
+static uint8 response[5];
 /*------------------------------------------------------------------*/
 /* 					 	public variables		 					*/
 /*------------------------------------------------------------------*/
@@ -108,27 +109,49 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 		AES128_ECB_decrypt(LC_Dev_System_Param.Role_Master.remote_notify+3, AES128_MiKey, LC_Dev_System_Param.Role_Master.remote_notify+3);
 		LOG("og data\n");
 		LOG_DUMP_BYTE(LC_Dev_System_Param.Role_Master.remote_notify, 20);
-		if(find_key_UUID(LC_Dev_System_Param.Role_Master.remote_notify+7, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
+		if(osal_memcmp(LC_Dev_System_Param.dev_rand_challenge, LC_Dev_System_Param.Role_Master.remote_notify+3, 4))
 		{
-			LOG("check pass\n");
-			data[0] = 0xBB;
-			data[1] = 0x02;
-			data[2] = 0x81;
-			data[3] = 0x00;
-			data[4] = checksum(data+1, 3);
-			online_send_one_data(1);
-			Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
+			if(find_key_UUID(LC_Dev_System_Param.Role_Master.remote_notify+7, LC_Dev_System_Param.dev_UUID_Buffer[0]) < UUID_MAX_NUM)
+			{
+				LOG("check pass\n");
+				data[0] = 0xBB;
+				data[1] = 0x02;
+				data[2] = 0x81;
+				data[3] = 0x00;
+				data[4] = checksum(data+1, 3);
+				online_send_one_data(1);
+				Output_Set_Time(LC_Dev_System_Param.dev_infrared_outpu_time);
+			}
+			else
+			{
+				data[0] = 0xBB;
+				data[1] = 0x02;
+				data[2] = 0x81;
+				data[3] = 0x04;
+				data[4] = checksum(data+1, 3);
+				online_send_one_data(2);
+			}
 		}
 		else
 		{
 			data[0] = 0xBB;
 			data[1] = 0x02;
 			data[2] = 0x81;
-			data[3] = 0x04;
+			data[3] = 0x05;
 			data[4] = checksum(data+1, 3);
-			online_send_one_data(2);
+			online_send_one_data(3);
 		}
-		Master_Write_Slave(LC_Dev_System_Param.Role_Master.remote_connHandle, data, 5);
+		bStatus_t status =  Master_Write_Slave(LC_Dev_System_Param.Role_Master.remote_connHandle, data, 5);
+		if(status == SUCCESS)
+		{
+			LOG("send check result success\n");
+		}
+		else
+		{
+			osal_memcpy(response, data, 5);
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SEND_RESPONSE_EVT, 100);
+			LOG("send check result ERROR %d\r\n",status);
+		}
 		return(events ^ REMOTE_NOTI_EVT);
 	}
 
@@ -383,6 +406,22 @@ uint16	LC_UI_Led_Buzzer_ProcessEvent(uint8 task_id, uint16 events)
 	{
 		online_send_one_data(1);
 		return(events ^ INFRARED_INT_EVT);
+	}
+
+	if(events & SEND_RESPONSE_EVT)
+	{
+		bStatus_t status =  Master_Write_Slave(LC_Dev_System_Param.Role_Master.remote_connHandle, response, 5);
+		if(status == SUCCESS)
+		{
+			LOG("send response success\n");
+			osal_memset(response, 0, 5);
+		}
+		else
+		{
+			LOG("send response %d\n", status);
+			osal_start_timerEx(LC_Ui_Led_Buzzer_TaskID, SEND_RESPONSE_EVT, 50);
+		}
+		return(events ^ SEND_RESPONSE_EVT);
 	}
     // Discard unknown events
     return 0;
